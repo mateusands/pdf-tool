@@ -1,0 +1,4 @@
+tkinter
+pypdf
+pdf2docx
+docx2pdf
