@@ -6,6 +6,7 @@ from tabs.tab_compress import TabCompress
 from tabs.tab_convert import TabConvert
 from tabs.tab_image_to_pdf import TabImageToPdf
 from tabs.tab_merge import TabMerge
+from tabs.tab_organize import TabOrganize
 from tabs.tab_pdf_to_image import TabPdfToImage
 from tabs.tab_protect import TabProtect
 from tabs.tab_rotate import TabRotate
@@ -173,6 +174,7 @@ class PDFToolApp:
             ("  Dividir",   TabSplit),
             ("  Juntar",    TabMerge),
             ("  Converter", TabConvert),
+            ("  Organizar", TabOrganize),
         ]:
             f = ttk.Frame(nb, style="TFrame")
             nb.add(f, text=label)
