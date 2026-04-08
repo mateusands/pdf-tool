@@ -1,237 +1,216 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import os
-from pypdf import PdfReader, PdfWriter
-from pdf2docx import Converter
-from docx2pdf import convert as docx_to_pdf_convert
+from tkinter import ttk
+
+from constants import BG, BORDER, CARD, DANGER, FG, MUTED, PRIMARY, SUCCESS
+from tabs.tab_compress import TabCompress
+from tabs.tab_convert import TabConvert
+from tabs.tab_image_to_pdf import TabImageToPdf
+from tabs.tab_merge import TabMerge
+from tabs.tab_pdf_to_image import TabPdfToImage
+from tabs.tab_protect import TabProtect
+from tabs.tab_rotate import TabRotate
+from tabs.tab_split import TabSplit
+from tabs.tab_unlock import TabUnlock
+
 
 class PDFToolApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Gerenciador de PDF e Word")
-        self.root.geometry("600x500")
+        self.root.geometry("760x620")
+        self.root.resizable(False, False)
+        self.root.configure(bg=BG)
 
-        # Configuração das Abas
-        self.notebook = ttk.Notebook(root)
-        self.notebook.pack(pady=10, expand=True, fill="both")
+        self._setup_styles()
+        self._build_header()
+        self._build_notebook()
+        self._build_statusbar()
 
-        # Criar os frames para cada aba
-        self.frame_split = ttk.Frame(self.notebook)
-        self.frame_merge = ttk.Frame(self.notebook)
-        self.frame_convert = ttk.Frame(self.notebook)
+    def _setup_styles(self):
+        s = ttk.Style(self.root)
+        s.theme_use("clam")
 
-        self.notebook.add(self.frame_split, text="Dividir PDF")
-        self.notebook.add(self.frame_merge, text="Juntar PDFs")
-        self.notebook.add(self.frame_convert, text="Converter (PDF <-> Word)")
+        s.configure(".", background=BG, foreground=FG, font=("Segoe UI", 10))
+        s.configure("TNotebook", background=BG, borderwidth=0)
+        s.configure(
+            "TNotebook.Tab",
+            background=BORDER,
+            foreground=MUTED,
+            padding=[14, 8],
+            font=("Segoe UI", 10),
+        )
+        s.map(
+            "TNotebook.Tab",
+            background=[("selected", CARD)],
+            foreground=[("selected", PRIMARY)],
+        )
 
-        # Inicializar as funcionalidades
-        self.setup_split_tab()
-        self.setup_merge_tab()
-        self.setup_convert_tab()
+        s.configure("Card.TFrame", background=CARD, relief="flat")
+        s.configure("TFrame", background=BG)
+        s.configure("TSeparator", background=BORDER)
 
-    # ==========================
-    # ABA 1: DIVIDIR PDF
-    # ==========================
-    def setup_split_tab(self):
-        lbl = ttk.Label(self.frame_split, text="Selecione um PDF para extrair páginas", font=("Arial", 12))
-        lbl.pack(pady=10)
+        s.configure(
+            "Title.TLabel",
+            background=CARD,
+            foreground=FG,
+            font=("Segoe UI", 13, "bold"),
+        )
+        s.configure(
+            "Sub.TLabel", background=CARD, foreground=MUTED, font=("Segoe UI", 9)
+        )
+        s.configure(
+            "File.TLabel",
+            background=CARD,
+            foreground=PRIMARY,
+            font=("Segoe UI", 9, "bold"),
+        )
+        s.configure(
+            "Muted.TLabel", background=CARD, foreground=MUTED, font=("Segoe UI", 9)
+        )
+        s.configure(
+            "Count.TLabel",
+            background=CARD,
+            foreground=PRIMARY,
+            font=("Segoe UI", 9, "bold"),
+        )
+        s.configure(
+            "Status.TLabel",
+            background=BORDER,
+            foreground=MUTED,
+            font=("Segoe UI", 8),
+            padding=[8, 4],
+        )
 
-        self.btn_select_split = ttk.Button(self.frame_split, text="Selecionar PDF", command=self.select_pdf_to_split)
-        self.btn_select_split.pack(pady=5)
+        for name, bg, fg, abg in [
+            ("Primary.TButton", PRIMARY, "white", "#1D4ED8"),
+            ("Success.TButton", SUCCESS, "white", "#15803D"),
+            ("Danger.TButton", DANGER, "white", "#B91C1C"),
+        ]:
+            s.configure(
+                name,
+                background=bg,
+                foreground=fg,
+                borderwidth=0,
+                focusthickness=0,
+                font=("Segoe UI", 9, "bold"),
+                padding=[14, 7],
+            )
+            s.map(name, background=[("active", abg)])
 
-        self.lbl_split_file = ttk.Label(self.frame_split, text="Nenhum arquivo selecionado", foreground="gray")
-        self.lbl_split_file.pack(pady=5)
+        s.configure(
+            "Ghost.TButton",
+            background=CARD,
+            foreground=PRIMARY,
+            borderwidth=1,
+            relief="solid",
+            font=("Segoe UI", 9),
+            padding=[12, 6],
+        )
+        s.map("Ghost.TButton", background=[("active", BG)])
 
-        lbl_instr = ttk.Label(self.frame_split, text="Digite as páginas (ex: 1,3,5 ou 1-3):")
-        lbl_instr.pack(pady=(20, 5))
+        s.configure(
+            "Small.TButton",
+            background=CARD,
+            foreground=MUTED,
+            borderwidth=1,
+            relief="solid",
+            font=("Segoe UI", 8),
+            padding=[8, 4],
+        )
+        s.map("Small.TButton", background=[("active", BG)])
 
-        self.entry_pages = ttk.Entry(self.frame_split, width=30)
-        self.entry_pages.pack(pady=5)
+        s.configure(
+            "TRadiobutton", background=CARD, foreground=FG, font=("Segoe UI", 9)
+        )
+        s.configure(
+            "TProgressbar",
+            troughcolor=BORDER,
+            background=PRIMARY,
+            borderwidth=0,
+            thickness=8,
+        )
+        s.configure(
+            "TEntry",
+            fieldbackground=CARD,
+            bordercolor=BORDER,
+            relief="solid",
+            padding=[8, 6],
+            font=("Segoe UI", 9),
+        )
 
-        self.btn_split_save = ttk.Button(self.frame_split, text="Salvar Páginas Selecionadas", command=self.split_pdf, state="disabled")
-        self.btn_split_save.pack(pady=20)
+        # Sub-notebook (inside "Mais Ferramentas")
+        s.configure("Sub.TNotebook", background=CARD, borderwidth=0)
+        s.configure(
+            "Sub.TNotebook.Tab",
+            background=BORDER,
+            foreground=MUTED,
+            padding=[12, 6],
+            font=("Segoe UI", 9),
+        )
+        s.map(
+            "Sub.TNotebook.Tab",
+            background=[("selected", BG)],
+            foreground=[("selected", PRIMARY)],
+        )
 
-    def select_pdf_to_split(self):
-        file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
-        if file_path:
-            self.split_file_path = file_path
-            self.lbl_split_file.config(text=os.path.basename(file_path))
-            self.btn_split_save.config(state="normal")
+    def _build_header(self):
+        hdr = tk.Frame(self.root, bg=PRIMARY, height=52)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        tk.Label(
+            hdr,
+            text="  Gerenciador de PDF e Word",
+            bg=PRIMARY,
+            fg="white",
+            font=("Segoe UI", 13, "bold"),
+        ).pack(side="left", padx=16)
 
-    def split_pdf(self):
-        pages_str = self.entry_pages.get()
-        if not pages_str:
-            messagebox.showwarning("Aviso", "Digite quais páginas deseja extrair.")
-            return
+    def _build_notebook(self):
+        nb = ttk.Notebook(self.root)
+        nb.pack(fill="both", expand=True, padx=16, pady=12)
 
-        try:
-            reader = PdfReader(self.split_file_path)
-            writer = PdfWriter()
-            total_pages = len(reader.pages)
-            
-            # Lógica simples para processar strings como "1,2,5-7"
-            selected_indices = set()
-            parts = pages_str.split(',')
-            for part in parts:
-                if '-' in part:
-                    start, end = map(int, part.split('-'))
-                    # Ajuste para índice 0 e inclusivo
-                    selected_indices.update(range(start-1, end))
-                else:
-                    selected_indices.add(int(part) - 1)
+        for label, TabClass in [
+            ("  Dividir",   TabSplit),
+            ("  Juntar",    TabMerge),
+            ("  Converter", TabConvert),
+        ]:
+            f = ttk.Frame(nb, style="TFrame")
+            nb.add(f, text=label)
+            card = ttk.Frame(f, style="Card.TFrame", padding=20)
+            card.pack(fill="both", expand=True)
+            TabClass(card, set_status=self._set_status, root=self.root)
 
-            # Adicionar páginas selecionadas
-            for idx in sorted(selected_indices):
-                if 0 <= idx < total_pages:
-                    writer.add_page(reader.pages[idx])
+        # "Mais Ferramentas" with sub-notebook
+        mais = ttk.Frame(nb, style="TFrame")
+        nb.add(mais, text="  Mais Ferramentas")
 
-            save_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")])
-            if save_path:
-                with open(save_path, "wb") as f:
-                    writer.write(f)
-                messagebox.showinfo("Sucesso", "Arquivo salvo com sucesso!")
+        sub = ttk.Notebook(mais, style="Sub.TNotebook")
+        sub.pack(fill="both", expand=True, padx=8, pady=8)
 
-        except Exception as e:
-            messagebox.showerror("Erro", f"Ocorreu um erro: {str(e)}")
+        for label, TabClass in [
+            ("Compactar",    TabCompress),
+            ("PDF → Imagem", TabPdfToImage),
+            ("Imagem → PDF", TabImageToPdf),
+            ("Proteger",     TabProtect),
+            ("Desbloquear",  TabUnlock),
+            ("Girar",        TabRotate),
+        ]:
+            f = ttk.Frame(sub, style="TFrame")
+            sub.add(f, text=f"  {label}")
+            card = ttk.Frame(f, style="Card.TFrame", padding=20)
+            card.pack(fill="both", expand=True)
+            TabClass(card, set_status=self._set_status, root=self.root)
 
-    # ==========================
-    # ABA 2: JUNTAR PDFS
-    # ==========================
-    def setup_merge_tab(self):
-        lbl = ttk.Label(self.frame_merge, text="Adicione PDFs e organize a ordem", font=("Arial", 12))
-        lbl.pack(pady=10)
+    def _build_statusbar(self):
+        self._status_var = tk.StringVar(value="Pronto")
+        ttk.Label(
+            self.root, textvariable=self._status_var, style="Status.TLabel"
+        ).pack(fill="x", side="bottom")
 
-        # Listbox para mostrar arquivos
-        self.list_merge = tk.Listbox(self.frame_merge, selectmode=tk.SINGLE, width=50, height=10)
-        self.list_merge.pack(pady=5, padx=10)
+    def _set_status(self, msg: str):
+        self._status_var.set(msg)
+        self.root.update_idletasks()
 
-        # Botões de controle
-        frame_btns = ttk.Frame(self.frame_merge)
-        frame_btns.pack(pady=5)
-
-        ttk.Button(frame_btns, text="Adicionar Arquivos", command=self.add_pdfs_to_merge).grid(row=0, column=0, padx=5)
-        ttk.Button(frame_btns, text="Remover", command=self.remove_pdf_from_merge).grid(row=0, column=1, padx=5)
-        
-        frame_order = ttk.Frame(self.frame_merge)
-        frame_order.pack(pady=5)
-        ttk.Button(frame_order, text="Mover Para Cima", command=self.move_up).pack(side=tk.LEFT, padx=5)
-        ttk.Button(frame_order, text="Mover Para Baixo", command=self.move_down).pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(self.frame_merge, text="Juntar e Salvar PDF", command=self.merge_pdfs).pack(pady=20)
-        
-        self.merge_files = [] # Lista para guardar caminhos completos
-
-    def add_pdfs_to_merge(self):
-        files = filedialog.askopenfilenames(filetypes=[("PDF Files", "*.pdf")])
-        for f in files:
-            self.merge_files.append(f)
-            self.list_merge.insert(tk.END, os.path.basename(f))
-
-    def remove_pdf_from_merge(self):
-        sel = self.list_merge.curselection()
-        if sel:
-            idx = sel[0]
-            self.list_merge.delete(idx)
-            self.merge_files.pop(idx)
-
-    def move_up(self):
-        sel = self.list_merge.curselection()
-        if sel:
-            idx = sel[0]
-            if idx > 0:
-                text = self.list_merge.get(idx)
-                self.list_merge.delete(idx)
-                self.list_merge.insert(idx-1, text)
-                self.list_merge.selection_set(idx-1)
-                # Atualizar lista interna
-                self.merge_files[idx], self.merge_files[idx-1] = self.merge_files[idx-1], self.merge_files[idx]
-
-    def move_down(self):
-        sel = self.list_merge.curselection()
-        if sel:
-            idx = sel[0]
-            if idx < self.list_merge.size() - 1:
-                text = self.list_merge.get(idx)
-                self.list_merge.delete(idx)
-                self.list_merge.insert(idx+1, text)
-                self.list_merge.selection_set(idx+1)
-                # Atualizar lista interna
-                self.merge_files[idx], self.merge_files[idx+1] = self.merge_files[idx+1], self.merge_files[idx]
-
-    def merge_pdfs(self):
-        if not self.merge_files:
-            messagebox.showwarning("Aviso", "Adicione pelo menos um arquivo PDF.")
-            return
-        
-        save_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")])
-        if save_path:
-            try:
-                merger = PdfWriter()
-                for pdf in self.merge_files:
-                    merger.append(pdf)
-                merger.write(save_path)
-                merger.close()
-                messagebox.showinfo("Sucesso", "PDFs juntados com sucesso!")
-            except Exception as e:
-                messagebox.showerror("Erro", f"Erro ao juntar: {str(e)}")
-
-    # ==========================
-    # ABA 3: CONVERTER
-    # ==========================
-    def setup_convert_tab(self):
-        lbl = ttk.Label(self.frame_convert, text="Converta entre PDF e Word", font=("Arial", 12))
-        lbl.pack(pady=10)
-
-        self.btn_select_conv = ttk.Button(self.frame_convert, text="Selecionar Arquivo (PDF ou DOCX)", command=self.select_file_convert)
-        self.btn_select_conv.pack(pady=5)
-
-        self.lbl_conv_file = ttk.Label(self.frame_convert, text="Nenhum arquivo selecionado", foreground="gray")
-        self.lbl_conv_file.pack(pady=5)
-
-        self.lbl_action = ttk.Label(self.frame_convert, text="Ação detectada: ...")
-        self.lbl_action.pack(pady=10)
-
-        self.btn_run_convert = ttk.Button(self.frame_convert, text="Converter Agora", command=self.run_conversion, state="disabled")
-        self.btn_run_convert.pack(pady=20)
-
-    def select_file_convert(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Documents", "*.pdf *.docx")])
-        if file_path:
-            self.convert_file_path = file_path
-            self.lbl_conv_file.config(text=os.path.basename(file_path))
-            
-            ext = os.path.splitext(file_path)[1].lower()
-            if ext == ".pdf":
-                self.lbl_action.config(text="Ação: Converter PDF para Word")
-                self.conversion_mode = "pdf2word"
-            elif ext == ".docx":
-                self.lbl_action.config(text="Ação: Converter Word para PDF")
-                self.conversion_mode = "word2pdf"
-            
-            self.btn_run_convert.config(state="normal")
-
-    def run_conversion(self):
-        try:
-            input_file = self.convert_file_path
-            
-            if self.conversion_mode == "pdf2word":
-                save_path = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word File", "*.docx")])
-                if save_path:
-                    # Usando pdf2docx
-                    cv = Converter(input_file)
-                    cv.convert(save_path, start=0, end=None)
-                    cv.close()
-                    messagebox.showinfo("Sucesso", "Convertido para Word com sucesso!")
-            
-            elif self.conversion_mode == "word2pdf":
-                save_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF File", "*.pdf")])
-                if save_path:
-                    # Usando docx2pdf
-                    docx_to_pdf_convert(input_file, save_path)
-                    messagebox.showinfo("Sucesso", "Convertido para PDF com sucesso!")
-
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro na conversão: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()

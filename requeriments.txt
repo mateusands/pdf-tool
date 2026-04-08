@@ -1,4 +1,6 @@
-tkinter
-pypdf
-pdf2docx
-docx2pdf
+# Gerenciador de PDF e Word — dependências diretas
+pypdf==6.9.2
+pymupdf==1.27.2.2
+pdf2docx==0.5.12
+docx2pdf==0.1.8
+cryptography==46.0.7
