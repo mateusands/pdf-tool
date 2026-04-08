@@ -10,6 +10,7 @@ Aplicação desktop em Python com interface gráfica (Tkinter) para manipulaçã
 | **Dividir PDF** | Visualize as páginas em miniaturas e selecione quais deseja extrair |
 | **Juntar PDFs** | Combine múltiplos PDFs em um só, organizando a ordem livremente |
 | **Converter** | Converta PDF → Word (.docx) ou Word → PDF automaticamente |
+| **Organizar Páginas** | Reordene páginas arrastando miniaturas ou usando botões de mover |
 
 ### Mais Ferramentas
 | Aba | Descrição |
@@ -72,7 +73,8 @@ pdfpython/
     ├── tab_image_to_pdf.py  # Imagem → PDF
     ├── tab_protect.py       # Proteger com senha
     ├── tab_unlock.py        # Remover senha
-    └── tab_rotate.py        # Girar páginas
+    ├── tab_rotate.py        # Girar páginas
+    └── tab_organize.py      # Organizar páginas
 ```
 
 ## Dependências
