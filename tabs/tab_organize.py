@@ -1,130 +1,129 @@
 import os
 import tempfile
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
+import customtkinter as ctk
 import fitz
 from pypdf import PdfReader, PdfWriter
 
-from constants import BORDER, MUTED, PRIMARY
-from widgets import file_row, section_title
+import theme as T
+from widgets import DropZone, section_title
 
-_THUMB_W = 88
-_THUMB_H = 124
-_COLS    = 5
-
-_COLOR_DRAG_SRC = "#F59E0B"   # âmbar  — página sendo arrastada
-_COLOR_DRAG_TGT = "#10B981"   # verde  — destino do drop
+_THUMB_W = T.THUMB_W
+_THUMB_H = T.THUMB_H
+_COLS    = T.GRID_COLS
 
 
 class TabOrganize:
     def __init__(self, parent, set_status, root):
         self.set_status  = set_status
         self.root        = root
-        self._path: str | None                        = None
-        self._pages: list[tuple[int, tk.PhotoImage]]  = []
-        self._selected: int | None                    = None
-        self._drag_src: int | None                    = None
-        self._drag_tgt: int | None                    = None
-        self._cells: dict                             = {}
+        self._path: str | None                       = None
+        self._pages: list[tuple[int, tk.PhotoImage]] = []
+        self._selected: int | None                   = None
+        self._drag_src: int | None                   = None
+        self._drag_tgt: int | None                   = None
+        self._cells: dict                            = {}
         self._build(parent)
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
     def _build(self, p):
-        section_title(p, "Organizar Páginas",
-                      "Reordene as páginas de um PDF arrastando ou usando os botões.")
+        section_title(p, "⚙️  Organizar Páginas",
+                      "Reordene as páginas arrastando ou usando os botões.")
 
-        self._file_var = tk.StringVar(value="Nenhum arquivo selecionado")
-        self._btn_clear = file_row(p, self._file_var)
-        self._btn_clear.config(command=self._clear)
+        self._drop = DropZone(p, icon="📄", text="Selecione um PDF para organizar",
+                              subtitle="ou clique para selecionar",
+                              command=self._select_file, on_clear=self._clear)
 
-        # Barra superior: botão selecionar + contagem
-        top = ttk.Frame(p, style="Card.TFrame")
-        top.pack(fill="x", pady=(0, 8))
-        ttk.Button(top, text="Selecionar PDF", style="Ghost.TButton",
-                   command=self._select_file).pack(side="left")
+        # Info
+        top = ctk.CTkFrame(p, fg_color="transparent")
+        top.pack(fill="x", padx=T.PAD_L, pady=(0, T.PAD_S))
         self._info_var = tk.StringVar(value="")
-        ttk.Label(top, textvariable=self._info_var,
-                  style="Muted.TLabel").pack(side="left", padx=14)
+        ctk.CTkLabel(top, textvariable=self._info_var,
+                     font=T.FONT_BODY, text_color=T.MUTED).pack(side="left")
 
-        # Botão salvar — empacotado ANTES do canvas para não ser empurrado
-        self._btn_save = ttk.Button(
-            p, text="Salvar PDF reorganizado",
-            style="Primary.TButton",
-            command=self._save,
-            state="disabled",
+        # Save button — packed BEFORE grid so it stays at bottom
+        self._btn_save = ctk.CTkButton(
+            p, text="💾  Salvar PDF reorganizado",
+            fg_color=T.PRIMARY, hover_color=T.PRIMARY_HOVER,
+            font=T.FONT_BUTTON, cursor="hand2", corner_radius=8, width=0, height=48,
+            command=self._save, state="disabled",
         )
-        self._btn_save.pack(side="bottom", anchor="w", pady=(8, 0))
+        self._btn_save.pack(side="bottom", anchor="w", padx=T.PAD_L,
+                            pady=(T.PAD_S, T.PAD_L))
 
-        # Barra de movimentação — também antes do canvas
-        move_bar = ttk.Frame(p, style="Card.TFrame")
-        move_bar.pack(side="bottom", fill="x", pady=(4, 0))
+        # Movement bar — also before grid
+        move_bar = ctk.CTkFrame(p, fg_color="transparent")
+        move_bar.pack(side="bottom", fill="x", padx=T.PAD_L, pady=(T.PAD_XS, 0))
 
-        ttk.Label(move_bar, text="Mover selecionada:",
-                  style="Sub.TLabel").pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(move_bar, text="Mover:", font=T.FONT_BODY,
+                     text_color=T.MUTED).pack(side="left", padx=(0, 8))
 
-        self._move_btns: dict[str, ttk.Button] = {}
-        for text, action, tip in [
-            ("⏮ Início",    "start", ""),
-            ("◀ Esquerda",  "left",  ""),
-            ("Direita ▶",   "right", ""),
-            ("Fim ⏭",       "end",   ""),
+        self._move_btns: dict[str, ctk.CTkButton] = {}
+        for text, action in [
+            ("⏮ Início",   "start"),
+            ("◀ Esquerda", "left"),
+            ("Direita ▶",  "right"),
+            ("Fim ⏭",      "end"),
         ]:
-            btn = ttk.Button(move_bar, text=text, style="Ghost.TButton",
-                             command=lambda a=action: self._move(a))
+            btn = ctk.CTkButton(
+                move_bar, text=text, fg_color="transparent",
+                border_width=1, border_color=T.BORDER,
+                text_color=T.FG_SECONDARY, hover_color=T.SURFACE_HOVER,
+                font=T.FONT_BODY, cursor="hand2", corner_radius=6,
+                height=32, command=lambda a=action: self._move(a),
+                state="disabled",
+            )
             btn.pack(side="left", padx=(0, 4))
-            btn.config(state="disabled")
             self._move_btns[action] = btn
 
-        ttk.Label(move_bar, text="  |  Arraste para reordenar",
-                  style="Muted.TLabel").pack(side="left", padx=(8, 0))
+        ctk.CTkLabel(move_bar, text="  |  Arraste para reordenar",
+                     font=T.FONT_SMALL, text_color=T.MUTED).pack(side="left", padx=(8, 0))
 
-        # Canvas com thumbnails
-        wrap = tk.Frame(p, bg=BORDER, bd=1, relief="solid")
-        wrap.pack(fill="both", expand=True)
+        # Canvas with thumbnails
+        wrap = ctk.CTkFrame(p, fg_color=T.GRID_BG, corner_radius=T.RADIUS_SM,
+                            border_width=1, border_color=T.BORDER)
+        wrap.pack(fill="both", expand=True, padx=T.PAD_L, pady=(0, T.PAD_S))
 
-        self._canvas = tk.Canvas(wrap, bg="#F0F2F5", highlightthickness=0)
-        vsb = ttk.Scrollbar(wrap, orient="vertical", command=self._canvas.yview)
+        self._canvas = tk.Canvas(wrap, bg=T.GRID_BG, highlightthickness=0)
+        vsb = ctk.CTkScrollbar(wrap, command=self._canvas.yview)
         self._canvas.configure(yscrollcommand=vsb.set)
-        vsb.pack(side="right", fill="y")
-        self._canvas.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        self._canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
 
-        self._inner = tk.Frame(self._canvas, bg="#F0F2F5")
+        self._inner = tk.Frame(self._canvas, bg=T.GRID_BG)
         self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
-        self._inner.bind("<Configure>", lambda _: self._canvas.configure(
-            scrollregion=self._canvas.bbox("all")))
+        self._inner.bind("<Configure>",
+                         lambda _: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
         self._canvas.bind("<MouseWheel>",
-                          lambda e: self._canvas.yview_scroll(
-                              -1 * (e.delta // 120), "units"))
+                          lambda e: self._canvas.yview_scroll(-1 * (e.delta // 120), "units"))
 
         self._show_placeholder()
 
-    # ── Seleção de arquivo ────────────────────────────────────────────────────
+    # ── File selection ────────────────────────────────────────────────────────
 
     def _select_file(self):
         path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if not path:
             return
         self._path = path
-        self._file_var.set(os.path.basename(path))
-        self._btn_clear.pack(side="right", padx=(4, 6))
+        self._drop.set_file(os.path.basename(path))
         self.set_status("Carregando páginas…")
         self._load_pages(path)
 
     def _clear(self):
-        self._path     = None
-        self._pages    = []
+        self._path = None
+        self._pages = []
         self._selected = None
         self._drag_src = None
         self._drag_tgt = None
-        self._cells    = {}
-        self._file_var.set("Nenhum arquivo selecionado")
+        self._cells = {}
         self._info_var.set("")
-        self._btn_clear.pack_forget()
-        self._btn_save.config(state="disabled")
+        self._btn_save.configure(state="disabled")
         for btn in self._move_btns.values():
-            btn.config(state="disabled")
+            btn.configure(state="disabled")
         self._show_placeholder()
         self.set_status("Pronto")
 
@@ -146,20 +145,18 @@ class TabOrganize:
                 self._canvas.update_idletasks()
         doc.close()
         n = len(self._pages)
-        self._info_var.set(f"{n} página(s) — clique para selecionar")
-        self._btn_save.config(state="normal")
+        self._info_var.set(f"{n} página(s) — clique para selecionar, arraste para mover")
+        self._btn_save.configure(state="normal")
         self._rebuild_grid()
-        self.set_status(f"{n} página(s) carregadas")
+        self.set_status(f"✓  {n} página(s) carregadas")
 
     # ── Grid ──────────────────────────────────────────────────────────────────
 
     def _show_placeholder(self):
         for w in self._inner.winfo_children():
             w.destroy()
-        tk.Label(self._inner,
-                 text="Selecione um PDF para organizar as páginas",
-                 bg="#F0F2F5", fg=MUTED,
-                 font=("Segoe UI", 10), pady=60).pack()
+        tk.Label(self._inner, text="Selecione um PDF para organizar as páginas",
+                 bg=T.GRID_BG, fg=T.MUTED, font=T.FONT_BODY, pady=60).pack()
 
     def _rebuild_grid(self):
         for w in self._inner.winfo_children():
@@ -168,19 +165,19 @@ class TabOrganize:
 
         for i, (_, photo) in enumerate(self._pages):
             row, col = divmod(i, _COLS)
-
-            cell    = tk.Frame(self._inner, bg="#F0F2F5", padx=5, pady=5)
-            bc      = self._border_color(i)
-            border  = tk.Frame(cell, bg=bc, padx=2, pady=2)
+            cell = tk.Frame(self._inner, bg=T.GRID_BG, padx=5, pady=5)
+            bc = self._border_color(i)
+            border = tk.Frame(cell, bg=bc, padx=2, pady=2)
             img_lbl = tk.Label(border, image=photo, cursor="fleur", bg=bc)
             img_lbl.pack()
             border.pack()
 
-            is_sel  = (i == self._selected)
-            num_lbl = tk.Label(cell, text=str(i + 1), bg="#F0F2F5",
-                               fg=PRIMARY if is_sel else MUTED,
-                               font=("Segoe UI", 8, "bold") if is_sel
-                               else ("Segoe UI", 8))
+            is_sel = (i == self._selected)
+            num_lbl = tk.Label(
+                cell, text=str(i + 1), bg=T.GRID_BG,
+                fg=T.PRIMARY if is_sel else T.MUTED,
+                font=(T.FONT_FAMILY, 8, "bold") if is_sel else T.FONT_TINY,
+            )
             num_lbl.pack(pady=(3, 0))
             cell.grid(row=row, column=col, padx=4, pady=4)
             self._cells[i] = (cell, border, img_lbl, num_lbl)
@@ -194,10 +191,13 @@ class TabOrganize:
         self._update_move_btns()
 
     def _border_color(self, idx: int) -> str:
-        if idx == self._drag_src:  return _COLOR_DRAG_SRC
-        if idx == self._drag_tgt:  return _COLOR_DRAG_TGT
-        if idx == self._selected:  return PRIMARY
-        return BORDER
+        if idx == self._drag_src:
+            return T.COLOR_DRAG_SRC
+        if idx == self._drag_tgt:
+            return T.COLOR_DRAG_TGT
+        if idx == self._selected:
+            return T.PRIMARY
+        return T.BORDER
 
     def _refresh_visuals(self):
         for idx, (_, border, img_lbl, num_lbl) in self._cells.items():
@@ -206,12 +206,12 @@ class TabOrganize:
             img_lbl.config(bg=bc)
             is_sel = (idx == self._selected)
             num_lbl.config(
-                fg=PRIMARY if is_sel else MUTED,
-                font=("Segoe UI", 8, "bold") if is_sel else ("Segoe UI", 8),
+                fg=T.PRIMARY if is_sel else T.MUTED,
+                font=(T.FONT_FAMILY, 8, "bold") if is_sel else T.FONT_TINY,
             )
         self._update_move_btns()
 
-    # ── Interação: clique e drag & drop ───────────────────────────────────────
+    # ── Drag & drop ───────────────────────────────────────────────────────────
 
     def _on_press(self, idx: int):
         self._selected = idx
@@ -245,7 +245,6 @@ class TabOrganize:
             self._refresh_visuals()
 
     def _pos_to_idx(self, ax: int, ay: int) -> int | None:
-        """Retorna o índice da célula que contém as coordenadas absolutas (ax, ay)."""
         for idx, (cell, *_) in self._cells.items():
             cx = cell.winfo_rootx()
             cy = cell.winfo_rooty()
@@ -258,16 +257,16 @@ class TabOrganize:
         has = self._selected is not None
         n   = len(self._pages)
         sel = self._selected
-        self._move_btns["start"].config(
-            state="normal" if has and sel > 0      else "disabled")
-        self._move_btns["left"].config(
-            state="normal" if has and sel > 0      else "disabled")
-        self._move_btns["right"].config(
-            state="normal" if has and sel < n - 1  else "disabled")
-        self._move_btns["end"].config(
-            state="normal" if has and sel < n - 1  else "disabled")
+        self._move_btns["start"].configure(
+            state="normal" if has and sel > 0 else "disabled")
+        self._move_btns["left"].configure(
+            state="normal" if has and sel > 0 else "disabled")
+        self._move_btns["right"].configure(
+            state="normal" if has and sel < n - 1 else "disabled")
+        self._move_btns["end"].configure(
+            state="normal" if has and sel < n - 1 else "disabled")
 
-    # ── Botões de mover ───────────────────────────────────────────────────────
+    # ── Move buttons ──────────────────────────────────────────────────────────
 
     def _move(self, action: str):
         i = self._selected
@@ -290,7 +289,7 @@ class TabOrganize:
 
         self._rebuild_grid()
 
-    # ── Salvar ────────────────────────────────────────────────────────────────
+    # ── Save ──────────────────────────────────────────────────────────────────
 
     def _save(self):
         save = filedialog.asksaveasfilename(
@@ -304,8 +303,8 @@ class TabOrganize:
                 writer.add_page(reader.pages[orig_idx])
             with open(save, "wb") as f:
                 writer.write(f)
-            self.set_status(f"Salvo: {os.path.basename(save)}")
+            self.set_status(f"✓  Salvo: {os.path.basename(save)}")
             messagebox.showinfo("Sucesso", "PDF salvo com a nova ordem das páginas!")
         except Exception as e:
             messagebox.showerror("Erro", str(e))
-            self.set_status("Erro ao salvar")
+            self.set_status("✗  Erro ao salvar")

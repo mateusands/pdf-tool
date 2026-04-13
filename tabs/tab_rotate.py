@@ -1,10 +1,12 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
+import customtkinter as ctk
 from pypdf import PdfReader, PdfWriter
 
-from widgets import ThumbnailGrid, file_row, section_title
+import theme as T
+from widgets import DropZone, ThumbnailGrid, section_title
 
 
 class TabRotate:
@@ -15,94 +17,109 @@ class TabRotate:
         self._build(parent)
 
     def _build(self, p):
-        section_title(
-            p,
-            "Girar PDF",
-            "Gire todas ou páginas específicas de um PDF.",
-        )
+        section_title(p, "🔃  Girar PDF",
+                      "Gire todas ou páginas específicas de um PDF.")
 
-        self._file_var = tk.StringVar(value="Nenhum arquivo selecionado")
-        self._btn_clear = file_row(p, self._file_var)
-        self._btn_clear.config(command=self._clear)
+        self._drop = DropZone(p, icon="📄", text="Selecione um PDF",
+                              subtitle="ou clique para selecionar",
+                              command=self._select, on_clear=self._clear)
 
-        top = ttk.Frame(p, style="Card.TFrame")
-        top.pack(fill="x", pady=(0, 8))
-        ttk.Button(
-            top, text="Selecionar PDF", style="Ghost.TButton", command=self._select
-        ).pack(side="left")
+        # Toolbar
+        bar = ctk.CTkFrame(p, fg_color="transparent")
+        bar.pack(fill="x", padx=T.PAD_L, pady=(0, T.PAD_S))
+
         self._count_var = tk.StringVar(value="")
-        ttk.Label(top, textvariable=self._count_var, style="Count.TLabel").pack(
-            side="left", padx=14
-        )
-        self._btn_all = ttk.Button(
-            top,
-            text="Tudo",
-            style="Small.TButton",
-            command=lambda: self._grid.select_all(),
-        )
-        self._btn_none = ttk.Button(
-            top,
-            text="Limpar",
-            style="Small.TButton",
+        ctk.CTkLabel(bar, textvariable=self._count_var,
+                     font=T.FONT_BODY, text_color=T.PRIMARY).pack(side="left")
+
+        self._btn_none = ctk.CTkButton(
+            bar, text="Limpar", fg_color="transparent", border_width=1,
+            border_color=T.BORDER, text_color=T.MUTED, font=T.FONT_BODY,
+            width=80, height=32, corner_radius=6, cursor="hand2",
             command=lambda: self._grid.deselect_all(),
         )
-
-        # Bottom controls packed before the expanding ThumbnailGrid
-        bottom = ttk.Frame(p, style="Card.TFrame")
-        bottom.pack(side="bottom", fill="x", pady=(8, 0))
-        ttk.Label(bottom, text="Rotação:", style="Sub.TLabel").pack(
-            side="left", padx=(0, 12)
+        self._btn_all = ctk.CTkButton(
+            bar, text="Tudo", fg_color="transparent", border_width=1,
+            border_color=T.BORDER, text_color=T.MUTED, font=T.FONT_BODY,
+            width=80, height=32, corner_radius=6, cursor="hand2",
+            command=lambda: self._grid.select_all(),
         )
+
+        # Bottom controls — packed before the expanding grid
+        bottom = ctk.CTkFrame(p, fg_color="transparent")
+        bottom.pack(side="bottom", fill="x", padx=T.PAD_L, pady=(T.PAD_S, T.PAD_L))
+
+        # Save button
+        self._btn_save = ctk.CTkButton(
+            bottom, text="🔃  Girar e salvar",
+            fg_color=T.PRIMARY, hover_color=T.PRIMARY_HOVER,
+            font=T.FONT_BUTTON, cursor="hand2", corner_radius=8, width=0, height=48,
+            command=self._save, state="disabled",
+        )
+        self._btn_save.pack(anchor="w", pady=(T.PAD_S, 0))
+
+        # Rotation angle — visual buttons
+        angle_frame = ctk.CTkFrame(bottom, fg_color="transparent")
+        angle_frame.pack(anchor="w", pady=(0, T.PAD_XS))
+
+        ctk.CTkLabel(angle_frame, text="Rotação:", font=T.FONT_BODY,
+                     text_color=T.MUTED).pack(side="left", padx=(0, T.PAD_M))
+
         self._angle_var = tk.IntVar(value=90)
-        for angle, label in [
-            (90, "90° Direita"),
-            (-90, "90° Esquerda"),
-            (180, "180°"),
-        ]:
-            ttk.Radiobutton(
-                bottom, text=label, variable=self._angle_var, value=angle
-            ).pack(side="left", padx=(0, 10))
+        self._angle_btns: dict[int, ctk.CTkButton] = {}
 
-        self._btn_save = ttk.Button(
-            p,
-            text="Girar e salvar",
-            style="Primary.TButton",
-            command=self._save,
-            state="disabled",
-        )
-        self._btn_save.pack(side="bottom", anchor="w", pady=(8, 0))
+        for angle, label in [(90, "↻ 90°"), (-90, "↺ 90°"), (180, "↕ 180°")]:
+            btn = ctk.CTkButton(
+                angle_frame, text=label, width=100, height=38,
+                corner_radius=8, cursor="hand2", font=T.FONT_PILL,
+                fg_color=T.PRIMARY if angle == 90 else T.BG_SECONDARY,
+                hover_color=T.PRIMARY_HOVER if angle == 90 else T.SURFACE_HOVER,
+                text_color="white" if angle == 90 else T.FG_SECONDARY,
+                border_width=1, border_color=T.BORDER,
+                command=lambda a=angle: self._set_angle(a),
+            )
+            btn.pack(side="left", padx=(0, 6))
+            self._angle_btns[angle] = btn
 
+        # Thumbnail grid
         self._grid = ThumbnailGrid(p)
         self._grid.on_change(self._on_change)
+
+    def _set_angle(self, angle: int):
+        self._angle_var.set(angle)
+        for a, btn in self._angle_btns.items():
+            if a == angle:
+                btn.configure(fg_color=T.PRIMARY, hover_color=T.PRIMARY_HOVER,
+                              text_color="white")
+            else:
+                btn.configure(fg_color=T.BG_SECONDARY, hover_color=T.SURFACE_HOVER,
+                              text_color=T.FG_SECONDARY)
 
     def _select(self):
         path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if not path:
             return
         self._path = path
-        self._file_var.set(os.path.basename(path))
-        self._btn_clear.pack(side="right", padx=(4, 6))
+        self._drop.set_file(os.path.basename(path))
         self.set_status("Carregando páginas…")
-        self._btn_all.pack(side="right", padx=(0, 4))
+        self._btn_all.pack(side="right", padx=(4, 0))
         self._btn_none.pack(side="right")
         n = self._grid.load_pdf(path)
-        self.set_status(f"{n} página(s) carregadas — clique para selecionar")
+        self.set_status(f"✓  {n} página(s) carregadas — clique para selecionar")
 
     def _clear(self):
         self._path = None
-        self._file_var.set("Nenhum arquivo selecionado")
         self._count_var.set("")
-        self._btn_clear.pack_forget()
         self._btn_all.pack_forget()
         self._btn_none.pack_forget()
-        self._btn_save.config(state="disabled")
+        self._btn_save.configure(state="disabled")
         self._grid.clear()
         self.set_status("Pronto")
 
     def _on_change(self, selected):
         n = len(selected)
         self._count_var.set(f"{n} página(s) selecionada(s)" if n else "")
-        self._btn_save.config(state="normal" if n else "disabled")
+        self._btn_save.configure(state="normal" if n else "disabled")
 
     def _save(self):
         selected = self._grid.get_selected()
@@ -110,8 +127,7 @@ class TabRotate:
             return
         angle = self._angle_var.get()
         save = filedialog.asksaveasfilename(
-            defaultextension=".pdf", filetypes=[("PDF", "*.pdf")]
-        )
+            defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
         if not save:
             return
         try:
@@ -123,7 +139,7 @@ class TabRotate:
                 writer.add_page(page)
             with open(save, "wb") as f:
                 writer.write(f)
-            self.set_status(f"Salvo: {os.path.basename(save)}")
+            self.set_status(f"✓  Salvo: {os.path.basename(save)}")
             messagebox.showinfo("Sucesso", "PDF girado e salvo com sucesso!")
         except Exception as e:
             messagebox.showerror("Erro", str(e))

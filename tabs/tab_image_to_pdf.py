@@ -1,16 +1,13 @@
 import os
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
+import customtkinter as ctk
 import fitz
 
-from constants import BORDER, CARD, FG, MUTED
+import theme as T
 from widgets import section_title
-
-# Colors for the per-row X button
-_X_BG     = "#e53935"
-_X_HOVER  = "#c62828"
 
 
 class TabImageToPdf:
@@ -20,170 +17,134 @@ class TabImageToPdf:
         self._files: list[str] = []
         self._build(parent)
 
-    # ── UI build ──────────────────────────────────────────────────────────────
-
     def _build(self, p):
-        section_title(
-            p, "Imagem → PDF", "Combine imagens PNG/JPG em um único arquivo PDF."
-        )
+        section_title(p, "📄  Imagem → PDF",
+                      "Combine imagens PNG/JPG em um único arquivo PDF.")
 
         # Scrollable image list
-        wrap = tk.Frame(p, bg=BORDER, bd=1, relief="solid")
-        wrap.pack(fill="both", expand=True)
+        wrap = ctk.CTkFrame(p, fg_color=T.BG_SECONDARY, corner_radius=T.RADIUS_SM,
+                            border_width=1, border_color=T.BORDER)
+        wrap.pack(fill="both", expand=True, padx=T.PAD_L, pady=(0, T.PAD_S))
 
-        self._canvas = tk.Canvas(wrap, bg=CARD, highlightthickness=0)
-        vsb = ttk.Scrollbar(wrap, orient="vertical", command=self._canvas.yview)
+        self._canvas = tk.Canvas(wrap, bg=T.BG_SECONDARY, highlightthickness=0)
+        vsb = ctk.CTkScrollbar(wrap, command=self._canvas.yview)
         self._canvas.configure(yscrollcommand=vsb.set)
-        vsb.pack(side="right", fill="y")
-        self._canvas.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        self._canvas.pack(side="left", fill="both", expand=True, padx=2, pady=2)
 
-        self._inner = tk.Frame(self._canvas, bg=CARD)
+        self._inner = tk.Frame(self._canvas, bg=T.BG_SECONDARY)
         self._canvas.create_window((0, 0), window=self._inner, anchor="nw")
-        self._inner.bind(
-            "<Configure>",
-            lambda _: self._canvas.configure(
-                scrollregion=self._canvas.bbox("all")
-            ),
-        )
-        self._canvas.bind(
-            "<MouseWheel>",
-            lambda e: self._canvas.yview_scroll(-1 * (e.delta // 120), "units"),
-        )
+        self._inner.bind("<Configure>",
+                         lambda _: self._canvas.configure(scrollregion=self._canvas.bbox("all")))
+        self._canvas.bind("<MouseWheel>",
+                          lambda e: self._canvas.yview_scroll(-1 * (e.delta // 120), "units"))
 
-        self._rebuild()  # show placeholder
+        self._rebuild()
 
         # Controls
-        ctrl = ttk.Frame(p, style="Card.TFrame")
-        ctrl.pack(fill="x", pady=10)
-        ttk.Button(
-            ctrl,
-            text="+ Adicionar imagens",
-            style="Ghost.TButton",
+        ctrl = ctk.CTkFrame(p, fg_color="transparent")
+        ctrl.pack(fill="x", padx=T.PAD_L, pady=T.PAD_S)
+
+        ctk.CTkButton(
+            ctrl, text="＋  Adicionar imagens",
+            fg_color="transparent", border_width=1, border_color=T.PRIMARY,
+            text_color=T.PRIMARY, hover_color=T.SURFACE_HOVER,
+            font=T.FONT_BODY, cursor="hand2", corner_radius=8, height=38,
             command=self._add,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            ctrl, text="🗑  Limpar tudo",
+            fg_color=T.DANGER, hover_color=T.DANGER_HOVER,
+            font=T.FONT_BODY, cursor="hand2", corner_radius=8, height=38,
+            command=self._clear_all,
         ).pack(side="left")
 
-        ttk.Button(
-            p, text="Gerar PDF", style="Success.TButton", command=self._generate
-        ).pack(anchor="w")
+        ctk.CTkButton(
+            p, text="📄  Gerar PDF",
+            fg_color=T.SUCCESS, hover_color=T.SUCCESS_HOVER,
+            font=T.FONT_BUTTON, cursor="hand2", corner_radius=8, width=0, height=48,
+            command=self._generate,
+        ).pack(anchor="w", padx=T.PAD_L, pady=(0, T.PAD_L))
 
     # ── List management ───────────────────────────────────────────────────────
 
     def _rebuild(self):
-        """Redraw the entire image list from self._files."""
         for w in self._inner.winfo_children():
             w.destroy()
 
         if not self._files:
-            tk.Label(
-                self._inner,
-                text="Nenhuma imagem adicionada.\nClique em '+ Adicionar imagens' para começar.",
-                bg=CARD,
-                fg=MUTED,
-                font=("Segoe UI", 9),
-                justify="center",
-                pady=40,
-            ).pack()
+            tk.Label(self._inner,
+                     text="Nenhuma imagem adicionada.\nClique em '＋ Adicionar imagens'.",
+                     bg=T.BG_SECONDARY, fg=T.MUTED, font=T.FONT_BODY,
+                     justify="center", pady=40).pack()
             return
 
         for i, path in enumerate(self._files):
             self._add_row(i, path)
 
     def _add_row(self, i: int, path: str):
-        row = tk.Frame(self._inner, bg=CARD)
-        row.pack(fill="x", padx=6, pady=2)
+        row = tk.Frame(self._inner, bg=T.BG_SECONDARY)
+        row.pack(fill="x", padx=8, pady=2)
 
-        # Index number
-        tk.Label(
-            row,
-            text=f"{i + 1}.",
-            bg=CARD,
-            fg=MUTED,
-            font=("Segoe UI", 9),
-            width=3,
-            anchor="e",
-        ).pack(side="left")
+        tk.Label(row, text=f"{i + 1}.", bg=T.BG_SECONDARY, fg=T.MUTED,
+                 font=T.FONT_BODY, width=3, anchor="e").pack(side="left")
 
-        # Filename
-        tk.Label(
-            row,
-            text=os.path.basename(path),
-            bg=CARD,
-            fg=FG,
-            font=("Segoe UI", 9),
-            anchor="w",
-        ).pack(side="left", fill="x", expand=True, padx=(6, 0))
+        tk.Label(row, text=f"  🖼️ {os.path.basename(path)}",
+                 bg=T.BG_SECONDARY, fg=T.FG, font=T.FONT_BODY,
+                 anchor="w").pack(side="left", fill="x", expand=True, padx=(6, 0))
 
-        # Move buttons
-        nav = tk.Frame(row, bg=CARD)
-        nav.pack(side="right", padx=(4, 0))
-        tk.Button(
-            nav,
-            text="↑",
-            command=lambda idx=i: self._move(idx, -1),
-            bg=CARD,
-            fg=MUTED,
-            relief="flat",
-            font=("Segoe UI", 9),
-            padx=4,
-            cursor="hand2",
-        ).pack(side="left")
-        tk.Button(
-            nav,
-            text="↓",
-            command=lambda idx=i: self._move(idx, 1),
-            bg=CARD,
-            fg=MUTED,
-            relief="flat",
-            font=("Segoe UI", 9),
-            padx=4,
-            cursor="hand2",
-        ).pack(side="left")
-
-        # X remove button
+        # Per-row X remove button
         btn_x = tk.Button(
-            row,
-            text="✕",
+            row, text="✕", bg=T.DANGER, fg="white",
+            activebackground=T.DANGER_HOVER, activeforeground="white",
+            font=(T.FONT_FAMILY, 9, "bold"), relief="flat", bd=0,
+            padx=7, pady=3, cursor="hand2",
             command=lambda idx=i: self._remove(idx),
-            bg=_X_BG,
-            fg="white",
-            font=("Segoe UI", 8, "bold"),
-            relief="flat",
-            bd=0,
-            padx=6,
-            pady=2,
-            cursor="hand2",
-            activebackground=_X_HOVER,
-            activeforeground="white",
         )
         btn_x.pack(side="right", padx=(4, 0))
 
+        # Move buttons
+        nav = tk.Frame(row, bg=T.BG_SECONDARY)
+        nav.pack(side="right", padx=(4, 0))
+
+        for text, direction in [("↑", -1), ("↓", 1)]:
+            btn = tk.Button(
+                nav, text=text, bg=T.SURFACE, fg=T.MUTED,
+                activebackground=T.SURFACE_HOVER, activeforeground=T.FG,
+                relief="flat", font=T.FONT_BODY, padx=6, cursor="hand2",
+                command=lambda idx=i, d=direction: self._move(idx, d),
+            )
+            btn.pack(side="left", padx=1)
+
         # Separator
-        tk.Frame(self._inner, bg=BORDER, height=1).pack(fill="x", padx=6)
+        tk.Frame(self._inner, bg=T.BORDER, height=1).pack(fill="x", padx=8)
 
     def _add(self):
         files = filedialog.askopenfilenames(
-            filetypes=[("Imagens", "*.png *.jpg *.jpeg")]
-        )
+            filetypes=[("Imagens", "*.png *.jpg *.jpeg")])
         if not files:
             return
         self._files.extend(files)
         self._rebuild()
-        self.set_status(f"{len(files)} imagem(ns) adicionada(s) — total: {len(self._files)}")
+        self.set_status(f"✓  {len(files)} imagem(ns) adicionada(s) — total: {len(self._files)}")
 
     def _remove(self, idx: int):
         self._files.pop(idx)
         self._rebuild()
         self.set_status(
-            f"{len(self._files)} imagem(ns) na lista" if self._files else "Lista vazia"
-        )
+            f"{len(self._files)} imagem(ns) na lista" if self._files else "Lista vazia")
+
+    def _clear_all(self):
+        self._files.clear()
+        self._rebuild()
+        self.set_status("Lista limpa")
 
     def _move(self, idx: int, direction: int):
         new_idx = idx + direction
         if 0 <= new_idx < len(self._files):
             self._files[idx], self._files[new_idx] = (
-                self._files[new_idx],
-                self._files[idx],
-            )
+                self._files[new_idx], self._files[idx])
             self._rebuild()
 
     # ── Generate PDF ──────────────────────────────────────────────────────────
@@ -193,12 +154,11 @@ class TabImageToPdf:
             messagebox.showwarning("Aviso", "Adicione pelo menos uma imagem.")
             return
         save = filedialog.asksaveasfilename(
-            defaultextension=".pdf", filetypes=[("PDF", "*.pdf")]
-        )
+            defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
         if not save:
             return
         files = list(self._files)
-        self.set_status("Gerando PDF…")
+        self.set_status("⏳  Gerando PDF…")
 
         def task():
             try:
@@ -219,9 +179,9 @@ class TabImageToPdf:
         threading.Thread(target=task, daemon=True).start()
 
     def _done(self, save: str, n: int):
-        self.set_status(f"PDF gerado: {os.path.basename(save)}")
+        self.set_status(f"✓  PDF gerado: {os.path.basename(save)}")
         messagebox.showinfo("Sucesso", f"PDF criado com {n} página(s)!")
 
     def _error(self, msg: str):
-        self.set_status("Erro ao gerar PDF")
+        self.set_status("✗  Erro ao gerar PDF")
         messagebox.showerror("Erro", msg)

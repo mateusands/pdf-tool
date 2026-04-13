@@ -4,3 +4,4 @@ pymupdf==1.27.2.2
 pdf2docx==0.5.12
 docx2pdf==0.1.8
 cryptography==46.0.7
+customtkinter>=5.2.0
