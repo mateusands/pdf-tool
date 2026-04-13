@@ -1,13 +1,14 @@
 import os
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
+import customtkinter as ctk
 from docx2pdf import convert as docx2pdf
 from pdf2docx import Converter
 
-from constants import CARD, SUCCESS
-from widgets import file_row, section_title
+import theme as T
+from widgets import DropZone, section_title
 
 
 class TabConvert:
@@ -19,87 +20,103 @@ class TabConvert:
         self._build(parent)
 
     def _build(self, p):
-        section_title(
-            p, "Converter PDF ↔ Word", "Converta entre PDF e DOCX automaticamente."
+        section_title(p, "🔄  Converter PDF ↔ Word",
+                      "Converta entre PDF e DOCX automaticamente.")
+
+        # Two option cards side by side
+        cards = ctk.CTkFrame(p, fg_color="transparent")
+        cards.pack(fill="x", padx=T.PAD_L, pady=(0, T.PAD_L))
+        cards.grid_columnconfigure(0, weight=1)
+        cards.grid_columnconfigure(1, weight=1)
+
+        self._card_pdf = self._make_card(cards, "📄 → 📝", "PDF → Word",
+                                          "Converta PDF para documento Word editável")
+        self._card_pdf.grid(row=0, column=0, padx=(0, 6), sticky="nsew")
+
+        self._card_word = self._make_card(cards, "📝 → 📄", "Word → PDF",
+                                           "Converta documento Word para PDF")
+        self._card_word.grid(row=0, column=1, padx=(6, 0), sticky="nsew")
+
+        # Drop zone
+        self._drop = DropZone(p, icon="📁", text="Selecione um arquivo PDF ou DOCX",
+                              subtitle="ou clique para selecionar",
+                              command=self._select, on_clear=self._clear)
+
+        # Detected action badge
+        badge = ctk.CTkFrame(p, fg_color="transparent")
+        badge.pack(fill="x", padx=T.PAD_L, pady=(0, T.PAD_M))
+        ctk.CTkLabel(badge, text="Ação detectada:", font=T.FONT_BODY,
+                     text_color=T.MUTED).pack(side="left")
+        self._action_var = tk.StringVar(value="—")
+        ctk.CTkLabel(badge, textvariable=self._action_var, font=(T.FONT_FAMILY, 12, "bold"),
+                     text_color=T.SUCCESS).pack(side="left", padx=(8, 0))
+
+        # Convert button
+        self._btn = ctk.CTkButton(
+            p, text="🔄  Converter agora",
+            fg_color=T.PRIMARY, hover_color=T.PRIMARY_HOVER,
+            font=T.FONT_BUTTON, cursor="hand2", corner_radius=8, width=0, height=48,
+            command=self._convert, state="disabled",
         )
+        self._btn.pack(anchor="w", padx=T.PAD_L, pady=(0, T.PAD_L))
 
-        self._file_var = tk.StringVar(value="Nenhum arquivo selecionado")
-        self._action_var = tk.StringVar(value="")
-        self._btn_clear = file_row(p, self._file_var)
-        self._btn_clear.config(command=self._clear)
-
-        ttk.Button(
-            p,
-            text="Selecionar arquivo (PDF ou DOCX)",
-            style="Ghost.TButton",
-            command=self._select,
-        ).pack(anchor="w")
-
-        badge = ttk.Frame(p, style="Card.TFrame")
-        badge.pack(fill="x", pady=16)
-        ttk.Label(badge, text="Ação detectada: ", style="Muted.TLabel").pack(
-            side="left"
-        )
-        tk.Label(
-            badge,
-            textvariable=self._action_var,
-            fg=SUCCESS,
-            bg=CARD,
-            font=("Segoe UI", 9, "bold"),
-        ).pack(side="left")
-
-        self._btn = ttk.Button(
-            p,
-            text="Converter agora",
-            style="Primary.TButton",
-            command=self._convert,
-            state="disabled",
-        )
-        self._btn.pack(anchor="w")
+    def _make_card(self, parent, icon, title, desc):
+        card = ctk.CTkFrame(parent, fg_color=T.BG_SECONDARY,
+                            corner_radius=T.RADIUS, border_width=1,
+                            border_color=T.BORDER)
+        ctk.CTkLabel(card, text=icon, font=(T.FONT_FAMILY, 24),
+                     text_color=T.FG).pack(pady=(T.PAD_L, T.PAD_S))
+        ctk.CTkLabel(card, text=title, font=T.FONT_BUTTON,
+                     text_color=T.FG).pack()
+        ctk.CTkLabel(card, text=desc, font=T.FONT_SMALL,
+                     text_color=T.MUTED, wraplength=200).pack(pady=(4, T.PAD_L))
+        return card
 
     def _select(self):
         path = filedialog.askopenfilename(
-            filetypes=[("Documentos", "*.pdf *.docx")]
-        )
+            filetypes=[("Documentos", "*.pdf *.docx")])
         if not path:
             return
         self._path = path
-        self._file_var.set(os.path.basename(path))
+        self._drop.set_file(os.path.basename(path))
         ext = os.path.splitext(path)[1].lower()
+
         if ext == ".pdf":
             self._mode = "pdf2word"
             self._action_var.set("PDF → Word (.docx)")
+            self._card_pdf.configure(border_color=T.PRIMARY)
+            self._card_word.configure(border_color=T.BORDER)
         else:
             self._mode = "word2pdf"
             self._action_var.set("Word (.docx) → PDF")
-        self._btn.config(state="normal")
-        self._btn_clear.pack(side="right", padx=(4, 6))
+            self._card_word.configure(border_color=T.PRIMARY)
+            self._card_pdf.configure(border_color=T.BORDER)
+
+        self._btn.configure(state="normal")
         self.set_status(f"Selecionado: {os.path.basename(path)}")
 
     def _clear(self):
         self._path = None
         self._mode = None
-        self._file_var.set("Nenhum arquivo selecionado")
-        self._action_var.set("")
-        self._btn.config(state="disabled")
-        self._btn_clear.pack_forget()
+        self._action_var.set("—")
+        self._btn.configure(state="disabled")
+        self._card_pdf.configure(border_color=T.BORDER)
+        self._card_word.configure(border_color=T.BORDER)
         self.set_status("Pronto")
 
     def _convert(self):
         if self._mode == "pdf2word":
             save = filedialog.asksaveasfilename(
-                defaultextension=".docx", filetypes=[("Word", "*.docx")]
-            )
+                defaultextension=".docx", filetypes=[("Word", "*.docx")])
         else:
             save = filedialog.asksaveasfilename(
-                defaultextension=".pdf", filetypes=[("PDF", "*.pdf")]
-            )
+                defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
         if not save:
             return
 
-        self._btn.config(state="disabled")
+        self._btn.configure(state="disabled")
         mode, path = self._mode, self._path
-        self.set_status("Convertendo…")
+        self.set_status("⏳  Convertendo…")
 
         def task():
             try:
@@ -116,11 +133,11 @@ class TabConvert:
         threading.Thread(target=task, daemon=True).start()
 
     def _done(self, save):
-        self._btn.config(state="normal")
-        self.set_status(f"Salvo: {os.path.basename(save)}")
+        self._btn.configure(state="normal")
+        self.set_status(f"✓  Salvo: {os.path.basename(save)}")
         messagebox.showinfo("Sucesso", "Arquivo convertido com sucesso!")
 
     def _error(self, msg):
-        self._btn.config(state="normal")
-        self.set_status("Erro na conversão")
+        self._btn.configure(state="normal")
+        self.set_status("✗  Erro na conversão")
         messagebox.showerror("Erro", msg)
