@@ -6,6 +6,10 @@ Aplicação desktop em Python com interface gráfica dark mode profissional (Cus
 
 **Interface dark mode** com abas customizadas, drop zones interativas e botões estilizados.
 
+<img width="981" height="752" alt="image" src="https://github.com/user-attachments/assets/23557529-b72b-477a-82f7-e1d3bf033c4e" />
+
+<img width="978" height="748" alt="image" src="https://github.com/user-attachments/assets/c478ffff-4562-4947-8a72-f7a83ff3b0f2" />
+
 ## Funcionalidades
 
 ### Ferramentas principais
