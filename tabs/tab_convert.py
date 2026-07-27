@@ -4,10 +4,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
-from docx2pdf import convert as docx2pdf
 from pdf2docx import Converter
 
 import theme as T
+from docx_convert import docx_to_pdf
 from widgets import DropZone, section_title
 
 
@@ -125,7 +125,7 @@ class TabConvert:
                     cv.convert(save, start=0, end=None)
                     cv.close()
                 else:
-                    docx2pdf(path, save)
+                    docx_to_pdf(path, save)
                 self.root.after(0, lambda: self._done(save))
             except Exception as e:
                 self.root.after(0, lambda: self._error(str(e)))

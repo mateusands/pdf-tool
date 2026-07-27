@@ -2,6 +2,7 @@
 pypdf==6.9.2
 pymupdf==1.27.2.2
 pdf2docx==0.5.12
-docx2pdf==0.1.8
+# Só no Windows/macOS: automatiza o Word. No Linux o backend é o LibreOffice.
+docx2pdf==0.1.8; sys_platform != "linux"
 cryptography==46.0.7
 customtkinter>=5.2.0
