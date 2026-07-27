@@ -43,7 +43,16 @@ Aplicação desktop em Python com interface gráfica dark mode profissional (Cus
 ## Requisitos
 
 - Python 3.10+
-- Windows 10/11 (necessário para `docx2pdf`, que usa o Microsoft Word instalado)
+- Windows, macOS ou Linux
+
+A conversão **Word → PDF** precisa de um motor externo, que varia por sistema:
+
+| Sistema | Motor | Como obter |
+|---------|-------|------------|
+| Windows / macOS | Microsoft Word (via `docx2pdf`) | Já instalado com o Office |
+| Linux | LibreOffice headless | `sudo pacman -S libreoffice-fresh` ou `sudo apt install libreoffice-writer` |
+
+As demais abas não dependem disso e funcionam em qualquer sistema.
 
 ## Instalação
 
@@ -54,26 +63,27 @@ cd pdf-tool
 
 # Crie e ative o ambiente virtual
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
 
 # Instale as dependências
-pip install -r requeriments.txt
+pip install -r requirements.txt
 ```
 
 ## Como usar
 
 ```bash
-python pdf_toll.py
+python pdf_tool.py
 ```
 
 ## Estrutura do projeto
 
 ```
 pdfpython/
-├── pdf_toll.py              # Ponto de entrada — app principal com tab bar customizada
+├── pdf_tool.py              # Ponto de entrada — app principal com tab bar customizada
 ├── theme.py                 # Paleta dark mode, fontes e espaçamentos
 ├── widgets.py               # Componentes reutilizáveis (DropZone, ThumbnailGrid)
-├── requeriments.txt         # Dependências do projeto
+├── docx_convert.py          # Word → PDF: Word no Windows/macOS, LibreOffice no Linux
+├── requirements.txt         # Dependências do projeto
 └── tabs/
     ├── tab_split.py         # Dividir PDF
     ├── tab_merge.py         # Juntar PDFs
@@ -95,5 +105,5 @@ pdfpython/
 | `pypdf` | Leitura, escrita, divisão, rotação e criptografia de PDFs |
 | `pymupdf` | Renderização de miniaturas, compactação e conversão PDF↔imagem |
 | `pdf2docx` | Conversão de PDF para Word |
-| `docx2pdf` | Conversão de Word para PDF (requer Microsoft Word no Windows) |
+| `docx2pdf` | Conversão de Word para PDF no Windows/macOS (no Linux usa-se o LibreOffice) |
 | `cryptography` | Suporte a PDFs criptografados com AES |
