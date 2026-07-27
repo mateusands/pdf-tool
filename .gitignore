@@ -27,3 +27,9 @@ desktop.ini
 *.bak
 *.swp
 *.log
+
+# Caderno de bordo local das sessões (skill finalizar-sessao)
+.claude/sessions/
+
+# Cache do pytest
+.pytest_cache/
