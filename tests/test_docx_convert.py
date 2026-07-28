@@ -29,8 +29,8 @@ from pathlib import Path
 
 import pytest
 
-import docx_convert
-from docx_convert import ConversionError
+from pdf_tool.core import docx_convert
+from pdf_tool.core.docx_convert import ConversionError
 
 
 class TestLocalizacaoDoLibreOffice:
