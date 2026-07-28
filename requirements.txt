@@ -5,4 +5,4 @@ pdf2docx==0.5.12
 # Só no Windows/macOS: automatiza o Word. No Linux o backend é o LibreOffice.
 docx2pdf==0.1.8; sys_platform != "linux"
 cryptography==46.0.7
-customtkinter>=5.2.0
+customtkinter==6.0.0
