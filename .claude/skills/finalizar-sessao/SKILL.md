@@ -26,9 +26,11 @@ O objetivo agora **não é codar**, e sim consolidar o que a sessão mudou.
 Avalie se a sessão mudou algo que o `CLAUDE.md` afirma. Gatilhos:
 
 - **Aba nova ou removida** — a estrutura de diretórios e a lista de ferramentas estão documentadas.
-- **Aba migrada para thread** — o arquivo afirma hoje que **4 das 10** usam thread e lista quais. Se você
-  migrou mais uma, **atualize o número e a lista**. É a afirmação mais fácil de ficar desatualizada.
-- **`constants.py` apagado** — o arquivo o descreve como código morto em dois lugares.
+- **Arquivo movido ou módulo novo** — a árvore aparece no `CLAUDE.md`, no `README.md` **e** nas skills de
+  `.claude/skills/`. Caminho errado numa skill é pior que ausente: manda quem lê para o arquivo que
+  não existe.
+- **Regra de dependência do pacote** — o `CLAUDE.md` afirma que `pdf_tool/core/` não importa Tkinter.
+  Se isso mudar, é a afirmação mais cara de ficar desatualizada: é ela que faz a suíte rodar sem display.
 - **Dependência nova ou removida** — a tabela de stack e a de diferenças por plataforma.
 - **Mudança no contrato das abas** (assinatura do `__init__`, forma de registro).
 - **Armadilha nova descoberta** — acrescente; é o conteúdo mais valioso do documento.
@@ -47,7 +49,7 @@ foi quebrada — registre no relatório em vez de esconder.
 **Depois o app**, porque nenhuma aba é coberta de ponta a ponta:
 
 ```bash
-.venv/bin/python pdf_tool.py
+.venv/bin/python main.py
 ```
 
 Use o roteiro de `/rodar-local`. Para qualquer mudança em fluxo de arquivo, confirme os três pontos

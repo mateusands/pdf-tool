@@ -1,6 +1,6 @@
 ---
 name: python-gui
-description: Desenvolvimento do Gerenciador de PDF e Word (CustomTkinter + pypdf/pymupdf). Codifica as convenções do repo — contrato das abas, registro em dois lugares, thread + root.after para não travar a UI, theme.py como única fonte de estilo, backend de conversão por plataforma. Use ao criar ou alterar aba, widget ou fluxo de arquivo.
+description: Desenvolvimento do Gerenciador de PDF e Word (CustomTkinter + pypdf/pymupdf). Codifica as convenções do repo — contrato das abas, registro da ferramenta em GRUPOS, ícones sem emoji, thread + root.after para não travar a UI, theme.py como única fonte de estilo, backend de conversão por plataforma. Use ao criar ou alterar aba, widget ou fluxo de arquivo.
 ---
 
 # Python GUI — Gerenciador de PDF e Word
@@ -23,20 +23,27 @@ class TabAlgumaCoisa:
         self._build(parent)
 ```
 
-- `set_status("⏳  Processando…")` é o feedback contínuo; `messagebox` é o desfecho.
+- `set_status(mensagem, estado)` é o feedback contínuo; `messagebox` é o desfecho. O `estado`
+  (`"info"`, `"ocupado"`, `"ok"`, `"erro"`) escolhe o ícone e a cor — **não escreva o símbolo no texto**.
 - `root` existe para **voltar da thread**, não para virar janela nova.
 - O `__init__` deve **só montar widgets**. Todas as abas são instanciadas no boot do app —
   trabalho pesado no construtor atrasa a abertura inteira.
 
-### Registrar em DOIS lugares (senão a aba não aparece)
+### Registrar a ferramenta: um lugar só
 
-Em `pdf_tool.py`:
+A lista `GRUPOS` em `pdf_tool/app.py` é a fonte única — dela saem a sidebar, as páginas e o cabeçalho:
 
-1. `TAB_CLASSES["minha_aba"] = TabMinhaAba` — constrói a página
-2. `MAIN_TABS` **ou** `SUB_TABS` — cria o botão que a alcança
+```python
+Ferramenta("minha", "Rótulo curto", "scissors", "Título completo",
+           "Frase que explica o que a ferramenta faz.", TabMinhaAba)
+```
 
-Só no `TAB_CLASSES`: a página é construída, ocupa memória e **nenhum botão a alcança**. Sem erro nenhum —
-o sintoma é "a aba não existe". É a pegadinha número um deste arquivo.
+O terceiro campo é o nome do ícone no catálogo de `core/icons.py`; nome desconhecido levanta `ValueError`
+na hora, em vez de desenhar um vazio silencioso. Precisa de um ícone que não existe? Baixe o SVG do
+[Lucide](https://lucide.dev) e acrescente ao `DESENHOS`.
+
+**A aba não desenha o próprio título** — quem mostra nome e descrição é o cabeçalho de contexto, a partir
+da `Ferramenta`. Comece direto pelo conteúdo.
 
 ### Layout
 
@@ -51,66 +58,82 @@ como se congela layout no Tkinter.
 Tkinter é single-threaded. Qualquer trabalho longo (ler PDF grande, renderizar miniatura, converter,
 compactar) **congela a janela** se rodar no callback do botão.
 
-Padrão do repo — copie de `tabs/tab_convert.py`:
+Padrão do repo — **nenhuma aba cria thread na mão**. Copie de `pdf_tool/tabs/tab_convert.py`:
 
 ```python
-self._btn.configure(state="disabled")
-self.set_status("⏳  Convertendo…")
-
-def task():
-    try:
-        ...  # trabalho pesado, SEM tocar em widget
-        self.root.after(0, lambda: self._done(save))
-    except Exception as e:
-        self.root.after(0, lambda: self._error(str(e)))
-
-threading.Thread(target=task, daemon=True).start()
+self._btn.configure(state="disabled")          # trava: sem disparo duplo
+self.set_status("Convertendo…", "ocupado")
+executar_em_thread(
+    self.root,
+    lambda: pdf_io.dividir_pdf(path, save, paginas),   # trabalho pesado, SEM tocar em widget
+    ao_terminar=lambda n: self._done(n, save),         # já volta na thread da UI
+    ao_falhar=self._error,                             # recebe a MENSAGEM, pronta
+)
 ```
 
 Regras:
 
-- **Nenhuma chamada de widget dentro da thread.** `configure`, `insert`, `set` só depois do `root.after(0, ...)`.
-  Violar isso gera travamento intermitente, difícil de reproduzir.
+- **Nenhuma chamada de widget dentro da thread.** O `executar_em_thread` já volta pelo `root.after(0, …)`.
 - **Desabilite o botão antes**, reabilite no `_done`/`_error` — senão o usuário dispara duas operações
   concorrentes sobre o mesmo arquivo.
-- **`daemon=True`** para a thread não segurar o processo ao fechar a janela.
 - Cuidado com `lambda` capturando variável de laço: use argumento default (`lambda p=path: ...`).
 
-⚠️ **Só 4 das 10 abas fazem isso hoje** (`convert`, `compress`, `pdf_to_image`, `image_to_pdf`). As demais
-rodam na UI thread. Se você mexer numa aba sem thread e ela ficar lenta, **migre para o padrão acima** em
-vez de aceitar o congelamento.
+⚠️ **Nunca escreva `lambda: self._error(str(e))` dentro de um `except`.** O Python apaga o nome `e` ao sair
+do bloco e o lambda só roda depois, no `after` — aí `str(e)` levanta `NameError`, o erro morre dentro do
+callback do Tk e o usuário **não vê aviso nenhum**. Foi esse o bug que fez as quatro abas com thread nunca
+mostrarem erro. É exatamente por isso que o `background.py` existe: ele extrai a mensagem dentro do
+`except` e passa por valor. Use-o.
 
 ---
 
-## Estilo: `theme.py` e nada mais
+## Estilo: `pdf_tool/theme.py` e nada mais
 
 ```python
-import theme as T
+from .. import theme as T          # dentro de pdf_tool/tabs/
 ctk.CTkLabel(parent, text="...", font=T.FONT_BODY, text_color=T.MUTED)
 ```
 
-- **Nunca escreva hex literal** numa aba. Faltou cor? Acrescente em `theme.py`.
+- **Nunca escreva hex literal** numa aba. Faltou cor? Acrescente em `pdf_tool/theme.py`.
 - Espaçamento também vem de lá: `T.PAD_S`, `T.PAD_M`, `T.PAD_L`, `T.RADIUS`.
-- **`constants.py` é código morto** — paleta clara, não importada por ninguém. Não importe dele por engano;
-  o nome parece certo e o conteúdo está errado.
-- **`FONT_FAMILY = "Segoe UI"` não existe no Linux** — o Tk faz fallback silencioso. Diferença visual
-  entre plataformas é esperada, não é bug a caçar.
+- **Elevação tonal:** no escuro a profundidade vem da luminância, não de sombra. `SURFACE_1..4` sobem
+  ~6% cada — use o nível da altura real do elemento (sidebar < card < campo dentro do card).
+- **`ACCENT` preenche, `ACCENT_TEXT` escreve.** O azul de preenchimento não tem contraste suficiente
+  quando é o próprio texto sobre fundo escuro. Vale igual para `SUCCESS`/`SUCCESS_TEXT` e
+  `DANGER`/`DANGER_TEXT`.
+- ⚠️ **Não existe letra mais branca que branco.** Faltou contraste num botão? Escureça o
+  **preenchimento**. `pytest -k contraste` julga cada par do tema pelo AA (4,5:1) — rode antes de
+  confiar no olho.
+- **Botão vem de `widgets.botao()`**, não de `ctk.CTkButton` cru: o CustomTkinter desabilitado escurece
+  só a letra e mantém o fundo colorido (1,29:1 sobre o azul, ilegível). A classe `Botao` repinta fundo,
+  texto e ícone juntos.
+- **As tuplas `T.FONT_*` só valem depois de `T.configurar_fontes(root)`**, que roda no boot e escolhe a
+  família instalada da plataforma. Não as leia em argumento default de função — isso é avaliado na
+  importação, antes da janela existir.
 
-## Widgets reutilizáveis (`widgets.py`)
+## Widgets reutilizáveis (`pdf_tool/widgets.py`)
 
-- `section_title(parent, title, subtitle="")` — cabeçalho padrão de toda aba. Use, não recrie.
+- `icone(nome, tamanho, cor)` — ícone Lucide como `PhotoImage`. **Nada de emoji na interface**; há teste
+  que varre o pacote e falha se algum voltar.
+- `botao(parent, texto, command=…, variante=…, nome_do_icone=…)` — variantes `primario`, `sucesso`,
+  `perigo`, `secundario`, `fantasma`.
+- `GrupoPills(parent, opcoes, valor_inicial=…, ao_mudar=…)` — escolha única (nível, formato, DPI, ângulo).
+- `CampoSenha(parent, rotulo)` — campo com mostrar/ocultar; `.valor()` e `.limpar()`.
+- `criar_area_rolavel(parent, **pack_kw)` — devolve `(canvas, conteudo)` com rolagem já ligada.
+- `estado_vazio(parent, icone, texto)` — o "nada aqui ainda" centralizado.
 - `DropZone(parent, icon=…, text=…, subtitle=…, command=…, on_clear=…)` — área de seleção de arquivo,
   com `set_file(nome)` para refletir a escolha.
 - `ThumbnailGrid(parent, cols, thumb_w, thumb_h)` — grade de miniaturas com seleção.
+- `ligar_rolagem(canvas)` — **obrigatório** em área rolável nova. Escutar só `<MouseWheel>` deixa a roda
+  do mouse morta no Linux (X11 manda `<Button-4>`/`<Button-5>`).
 
-Precisa de um componente novo em mais de uma aba? Ele vai para `widgets.py`, não duplicado.
+Precisa de um componente novo em mais de uma aba? Ele vai para `pdf_tool/widgets.py`, não duplicado.
 
 ---
 
 ## Conversão Word → PDF: sempre por `docx_convert`
 
 ```python
-from docx_convert import docx_to_pdf, ConversionError
+from ..core.docx_convert import docx_to_pdf, ConversionError   # dentro de pdf_tool/tabs/
 ```
 
 - **Não importe `docx2pdf` diretamente.** Ele só funciona no Windows/macOS (automatiza o Word) e nem
@@ -127,13 +150,15 @@ from docx_convert import docx_to_pdf, ConversionError
 
 Esta ferramenta mexe em arquivos que a pessoa não tem cópia:
 
-- **Nunca sobrescreva o arquivo de entrada.** Todas as operações geram destino novo, escolhido por
-  `asksaveasfilename`. Mantenha isso.
+- **Toda escrita de PDF passa por `pdf_tool/core/pdf_io.py`.** É lá que moram as duas garantias que
+  protegem o usuário: destino ≠ origem (comparado por `realpath`, então caminho relativo e link
+  simbólico também são pegos) e gravação atômica (`.part` → `os.replace`, então falha no meio não deixa
+  arquivo truncado). Aba que chama `PdfWriter`/`doc.save()` direto fura as duas.
+- **Operação que escreve fora do `pdf_io`** (montar PDF a partir de imagens, exportar para pasta) precisa
+  chamar `pdf_io.validar_destino(destino, *origens)` na mão.
 - **Nunca falhe em silêncio.** Exceção engolida faz o usuário achar que salvou. Todo caminho de erro
-  termina em `messagebox.showerror` **e** status bar.
+  termina em `messagebox.showerror` **e** status bar com estado `"erro"`.
 - **Senha de PDF** (`tab_protect`/`tab_unlock`) não vai para log, título de janela nem status bar.
-- **Escreva primeiro, confirme depois:** se a operação falhar no meio, não deixe arquivo truncado no
-  lugar de um válido.
 
 ---
 
@@ -147,8 +172,10 @@ Esta ferramenta mexe em arquivos que a pessoa não tem cópia:
 
 ### O desafio deste repo: a aba não é testável como está
 
-As 10 abas misturam seleção de arquivo, processamento e widget num método só. Não dá para testar isso
-sem display. **O caminho não é heroico — é extrair enquanto você já está mexendo:**
+A escrita de arquivo, a thread, a reordenação, os ícones e a escolha de fonte já saíram para
+`pdf_tool/core/`. Mas ainda sobra regra dentro de aba (montagem do PDF a partir de imagens, DPI e
+formato do PDF → imagem), e isso não é testável sem display. **O caminho não é heroico — é extrair
+enquanto você já está mexendo:**
 
 ```python
 # ❌ regra presa dentro da aba, intestável
@@ -164,7 +191,7 @@ def parse_intervalo(texto: str, total: int) -> list[int]:
     ...
 ```
 
-Foi exatamente assim que o `docx_convert.py` nasceu, e ele é o único pedaço deste projeto hoje coberto
+Foi exatamente assim que o `pdf_tool/core/docx_convert.py` nasceu, e ele é o único pedaço deste projeto hoje coberto
 por teste. Ao mexer numa aba, extraia a regra que você ia tocar — não o arquivo inteiro.
 
 **Mocks só para o externo** (LibreOffice via `subprocess`). Para arquivo, use `tmp_path` do pytest e

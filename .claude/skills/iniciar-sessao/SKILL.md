@@ -11,8 +11,8 @@ A fonte da verdade é **o código**.
 
 Antes de qualquer ação, execute os passos de leitura abaixo:
 
-1. **Leia o `CLAUDE.md` da raiz** — arquitetura da UI, contrato das abas, padrão de thread, e os dois
-   detalhes que enganam: `constants.py` é código morto e `Segoe UI` não existe no Linux.
+1. **Leia o `CLAUDE.md` da raiz** — arquitetura da UI, contrato das abas, padrão de thread, e a regra de
+   dependência do pacote (`pdf_tool/core/` não importa Tkinter).
 
 2. **Leia a última sessão**, se houver: `.claude/sessions/` (arquivo mais recente).
 
@@ -21,9 +21,10 @@ Antes de qualquer ação, execute os passos de leitura abaixo:
    git status --short && git branch --show-current && git log --oneline -10
    ```
 
-4. **Leia só o que a tarefa exige.** São ~1.000 linhas em `tabs/` — não carregue as 10 abas de uma vez.
-   O caminho eficiente é: `pdf_tool.py` (como tudo se conecta) → `theme.py` → a aba alvo → uma aba
-   vizinha do mesmo tipo, para pegar o padrão.
+4. **Leia só o que a tarefa exige.** São ~1.000 linhas em `pdf_tool/tabs/` — não carregue as 10 abas de
+   uma vez. O caminho eficiente é: `pdf_tool/app.py` (como tudo se conecta) → `pdf_tool/theme.py` → a aba
+   alvo → uma aba vizinha do mesmo tipo, para pegar o padrão. Se a tarefa mexe em arquivo, comece por
+   `pdf_tool/core/pdf_io.py`.
 
 5. **MODO SOMENTE LEITURA:** é proibido alterar código, criar ou apagar arquivo nesta etapa.
 
@@ -33,14 +34,17 @@ Confirme explicitamente que estão ativos:
 
 - **Integridade dos arquivos do usuário.** Nunca sobrescrever o arquivo de entrada; nunca falhar em
   silêncio. Esta ferramenta mexe em documento que a pessoa pode não ter backup.
-- **Operação longa vai para thread** + `root.after(0, ...)` para voltar à UI. Nenhuma chamada de widget
-  dentro da thread.
-- **Estilo só de `theme.py`.** Nada de hex literal; `constants.py` é código morto e não deve ser importado.
+- **Toda escrita de PDF passa por `pdf_tool/core/pdf_io.py`.** É lá que moram a checagem destino ≠ origem
+  e a gravação atômica; aba que chama `PdfWriter`/`doc.save()` direto fura as duas.
+- **Operação longa vai por `background.executar_em_thread`.** Nenhuma aba cria `threading.Thread`, e
+  nenhuma chamada de widget acontece dentro da thread.
+- **Estilo só de `pdf_tool/theme.py`.** Nada de hex literal.
 - **Word → PDF só por `docx_convert.docx_to_pdf`.** Import direto de `docx2pdf` quebra no Linux.
-- **Aba nova se registra em dois lugares** (`TAB_CLASSES` + `MAIN_TABS`/`SUB_TABS`).
+- **Ferramenta nova se registra num lugar só**: a lista `GRUPOS` em `pdf_tool/app.py`.
+- **Nada de emoji na interface** — use `widgets.icone()`; há teste que varre o pacote.
 - **SDD + BDD + TDD obrigatório** — spec no topo do teste → `test_deve_<resultado>_quando_<condição>` →
-  teste vermelho → código. A suíte roda com `pytest`. Aba não é testável como está: ao mexer numa,
-  **extraia a regra para função pura** e teste ela (foi assim que o `docx_convert.py` nasceu).
+  teste vermelho → código. A suíte roda com `pytest`. Ao mexer numa aba, **extraia a regra para função
+  pura** em `pdf_tool/core/` e teste ela.
 - **Verde não basta** — nenhuma aba é coberta de ponta a ponta. Validação real é abrir o app, pelo
   roteiro de `/rodar-local`, com arquivo real.
 - **Sem commit/push sem ordem explícita.**

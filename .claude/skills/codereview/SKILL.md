@@ -21,7 +21,7 @@ Esta ferramenta escreve em arquivos que a pessoa pode não ter backup. Um bug aq
 - **Sobrescrita do arquivo de entrada:** o diff grava no mesmo caminho que leu? Toda operação deve gerar
   destino novo via `asksaveasfilename`. Reporte no topo se encontrar.
 - **Escrita parcial:** se a operação falhar no meio, sobra arquivo truncado no lugar de um válido? O
-  padrão seguro é escrever em temporário e mover no fim (é o que `docx_convert.py` faz).
+  padrão seguro é escrever em temporário e mover no fim (é o que `pdf_tool/core/docx_convert.py` faz).
 - **Falha silenciosa:** `except` que só faz `pass`/`print` sem `messagebox` nem status bar. O usuário
   conclui que salvou. Isso é mais grave aqui do que numa app comum.
 - **Senha vazando:** senha de PDF em log, `print`, título de janela, status bar ou mensagem de erro.
@@ -31,7 +31,7 @@ Esta ferramenta escreve em arquivos que a pessoa pode não ter backup. Um bug aq
 ## Pilar 2 — Thread da UI
 
 - **Operação longa no callback do botão** (ler PDF grande, renderizar miniatura, converter, compactar)
-  sem `threading.Thread`? A janela congela. Compare com `tabs/tab_convert.py`.
+  sem `threading.Thread`? A janela congela. Compare com `pdf_tool/tabs/tab_convert.py`.
 - **Widget tocado dentro da thread** — `configure`, `insert`, `set` fora do `root.after(0, ...)`. Isso é
   travamento intermitente, o pior tipo de bug para reproduzir. Verifique linha a linha o corpo de `task()`.
 - **Botão não desabilitado** durante o processamento → duas operações concorrentes no mesmo arquivo.
@@ -42,18 +42,22 @@ Esta ferramenta escreve em arquivos que a pessoa pode não ter backup. Um bug aq
 
 ## Pilar 3 — Contrato das abas
 
-- **Aba nova registrada nos dois lugares?** `TAB_CLASSES` **e** `MAIN_TABS`/`SUB_TABS` em `pdf_tool.py`.
-  Só no primeiro = página construída que nenhum botão alcança, sem erro nenhum.
-- **Assinatura correta:** `__init__(self, parent, set_status, root)`. Divergir quebra o `_build_content()`.
+- **Ferramenta nova na lista `GRUPOS`** de `pdf_tool/app.py`? É a fonte única da sidebar e do cabeçalho.
+- **Emoji na interface?** Proibido — `widgets.icone()` resolve. O teste varre o pacote, mas revise mesmo assim.
+- **Símbolo escrito no texto do status** (`"✓ Salvo"`)? O ícone e a cor saem do `estado`:
+  `set_status("Salvo", "ok")`.
+- **Assinatura correta:** `__init__(self, parent, set_status, root)`. Divergir quebra o `_montar_conteudo()`.
 - **`__init__` faz trabalho pesado?** Todas as abas são instanciadas no boot — isso atrasa a abertura do
   app inteiro. Construtor só monta widgets.
 - **`pack` e `grid` misturados no mesmo container** — congela o layout no Tkinter.
 
 ## Pilar 4 — Estilo e reuso
 
-- **Hex literal ou fonte literal** numa aba? Tudo vem de `theme.py` (`T.PRIMARY`, `T.FONT_BODY`, `T.PAD_M`).
-- **Import de `constants.py`?** É código morto (paleta clara, não usada). O nome engana — reporte.
-- **Componente duplicado** que já existe em `widgets.py` (`section_title`, `DropZone`, `ThumbnailGrid`).
+- **Hex literal ou fonte literal** numa aba? Tudo vem de `pdf_tool/theme.py` (`T.PRIMARY`, `T.FONT_BODY`, `T.PAD_M`).
+- **Aba escrevendo PDF na mão?** `PdfWriter`/`doc.save()` dentro de `pdf_tool/tabs/` fura a checagem de
+  destino e a gravação atômica. Toda escrita passa por `pdf_tool/core/pdf_io.py` — reporte.
+- **Componente duplicado** que já existe em `pdf_tool/widgets.py` (`botao`, `GrupoPills`, `CampoSenha`,
+  `DropZone`, `ThumbnailGrid`, `criar_area_rolavel`, `estado_vazio`).
 - **`docx2pdf` importado diretamente** numa aba? Tem que passar por `docx_convert.docx_to_pdf` — o import
   direto quebra no Linux, onde o pacote nem é instalado.
 
@@ -83,7 +87,7 @@ Esta ferramenta escreve em arquivos que a pessoa pode não ter backup. Um bug aq
 - Clean Code: função que faz seleção + processamento + UI ao mesmo tempo; complexidade desnecessária.
 - Nomes e comentários seguindo o arquivo (o repo mistura inglês e português — siga o vizinho, não
   padronize por conta própria).
-- Duplicação entre abas que pede extração para `widgets.py`.
+- Duplicação entre abas que pede extração para `pdf_tool/widgets.py`.
 
 ## Formato da resposta
 
