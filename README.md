@@ -1,78 +1,96 @@
 # Gerenciador de PDF e Word
 
-Aplicação desktop em Python com interface gráfica dark mode profissional (CustomTkinter) para manipulação de arquivos PDF e Word.
+Aplicação desktop em Python para trabalhar com PDF e Word: dividir, juntar,
+organizar, girar, converter, compactar, proteger e desbloquear. Interface dark
+em CustomTkinter, e nenhuma ferramenta toca no seu arquivo original.
 
-## Screenshots
+Roda em Windows, macOS e Linux.
 
-**Interface dark mode** com abas customizadas, drop zones interativas e botões estilizados.
+![Dividir PDF](docs/dividir.png)
 
-<img width="981" height="752" alt="image" src="https://github.com/user-attachments/assets/23557529-b72b-477a-82f7-e1d3bf033c4e" />
+<details>
+<summary>Mais telas</summary>
 
-<img width="978" height="748" alt="image" src="https://github.com/user-attachments/assets/c478ffff-4562-4947-8a72-f7a83ff3b0f2" />
+**Organizar páginas** — reordene arrastando as miniaturas ou pelos botões de mover.
 
-## Funcionalidades
+![Organizar páginas](docs/organizar.png)
 
-### Ferramentas principais
-| Aba | Descrição |
-|-----|-----------|
-| ✂️ **Dividir PDF** | Visualize as páginas em miniaturas e selecione quais deseja extrair |
-| 🔗 **Juntar PDFs** | Combine múltiplos PDFs em um só, organizando a ordem livremente |
-| 🔄 **Converter** | Converta PDF → Word (.docx) ou Word → PDF automaticamente |
-| ⚙️ **Organizar Páginas** | Reordene páginas arrastando miniaturas ou usando botões de mover |
+**Juntar PDFs** — a ordem da lista é a ordem do resultado.
 
-### Mais Ferramentas
-| Aba | Descrição |
-|-----|-----------|
-| 📦 **Compactar** | Reduza o tamanho de um PDF com níveis baixo, médio ou alto |
-| 🖼️ **PDF → Imagem** | Exporte cada página como PNG ou JPG em DPI configurável (72/150/300) |
-| 📄 **Imagem → PDF** | Combine imagens PNG/JPG em um único PDF, reordenando como quiser |
-| 🔒 **Proteger** | Adicione senha a um PDF gerando uma cópia protegida com AES-256 |
-| 🔓 **Desbloquear** | Remova a senha de um PDF protegido gerando uma cópia livre |
-| 🔃 **Girar** | Gire páginas específicas ou todas em 90°, -90° ou 180° |
+![Juntar PDFs](docs/juntar.png)
 
-## Interface
+**Proteger com senha** — gera uma cópia cifrada com AES-256.
 
-- **Sidebar única** com as 10 ferramentas agrupadas por finalidade — nenhuma
-  fica escondida atrás de um clique extra
-- **Ícones vetoriais** ([Lucide](https://lucide.dev), ISC) rasterizados em tempo
-  de execução no tamanho e na cor de cada estado. Nada de emoji: emoji muda de
-  desenho conforme o sistema, tem cor fixa e no Linux depende de fonte instalada
-- **Elevação tonal** — no escuro a profundidade vem da luminância da superfície,
-  não de sombra: cinco níveis subindo ~6% cada, nenhum preto puro
-- **Contraste verificado, não estimado** — cada par de cor do tema é medido pelo
-  WCAG e checado em teste (`pytest -k contraste`); todos passam no AA (4,5:1)
-- **Tipografia nativa** — a família é escolhida entre as instaladas no sistema
-  (Segoe UI, SF Pro, Inter/Cantarell/Noto), em vez de cair num fallback sorteado
-- **Cabeçalho de contexto** com o nome e a descrição da ferramenta ativa
-- **Status bar** com ícone de estado (pronto, processando, sucesso, erro)
-- **Grade de miniaturas** com seleção por clique e arrastar para reordenar
+![Proteger com senha](docs/proteger.png)
+
+</details>
+
+## Ferramentas
+
+As dez ficam numa sidebar única, agrupadas por finalidade — nenhuma escondida
+atrás de um clique extra.
+
+**Organizar**
+
+| Ferramenta | O que faz |
+|---|---|
+| **Dividir** | Mostra as páginas em miniatura; clique para escolher quais extrair |
+| **Juntar** | Combina vários PDFs num só, na ordem que você definir |
+| **Organizar páginas** | Reordena páginas arrastando as miniaturas ou pelos botões |
+| **Girar** | Gira todas as páginas ou só as selecionadas, em 90°, −90° ou 180° |
+
+**Converter**
+
+| Ferramenta | O que faz |
+|---|---|
+| **PDF e Word** | PDF → `.docx` editável, ou `.docx` → PDF. O sentido é detectado sozinho |
+| **PDF para imagem** | Exporta cada página como PNG ou JPG, a 72, 150 ou 300 DPI |
+| **Imagem para PDF** | Junta imagens PNG/JPG num único PDF, reordenando como quiser |
+
+**Otimizar e proteger**
+
+| Ferramenta | O que faz |
+|---|---|
+| **Compactar** | Reduz o tamanho do arquivo em três níveis de compactação |
+| **Proteger** | Gera uma cópia cifrada com AES-256, exigindo senha para abrir |
+| **Desbloquear** | Gera uma cópia sem proteção, informando a senha atual |
+
+## Seus arquivos estão seguros
+
+Esta ferramenta escreve em documentos que você pode não ter em backup. Três
+garantias valem para todas as ferramentas:
+
+- **O arquivo de entrada nunca é sobrescrito.** Se o destino escolhido for uma
+  das origens, a operação é recusada com aviso em vez de executada. A comparação
+  é por caminho real, então caminho relativo e link simbólico também são pegos.
+- **A gravação é atômica.** O PDF é escrito num arquivo temporário e só então
+  assume o nome final: falha no meio do caminho não deixa um arquivo truncado
+  que parece salvo.
+- **Nada falha em silêncio.** Todo erro chega à tela com uma mensagem que diz o
+  que fazer — inclusive o comando de instalação, quando falta um motor externo.
 
 ## Requisitos
 
-- Python 3.10+
-- Windows, macOS ou Linux
+- Python 3.10 ou superior
 
-A conversão **Word → PDF** precisa de um motor externo, que varia por sistema:
+A conversão **Word → PDF** é a única que precisa de um motor externo:
 
 | Sistema | Motor | Como obter |
 |---------|-------|------------|
-| Windows / macOS | Microsoft Word (via `docx2pdf`) | Já instalado com o Office |
+| Windows / macOS | Microsoft Word (via `docx2pdf`) | Já vem com o Office |
 | Linux | LibreOffice headless | `sudo pacman -S libreoffice-fresh` ou `sudo apt install libreoffice-writer` |
 
-As demais abas não dependem disso e funcionam em qualquer sistema.
+As outras nove ferramentas não dependem disso e funcionam em qualquer sistema.
 
 ## Instalação
 
 ```bash
-# Clone o repositório
 git clone https://github.com/mateusands/pdf-tool.git
 cd pdf-tool
 
-# Crie e ative o ambiente virtual
 python -m venv .venv
 source .venv/bin/activate     # Windows: .venv\Scripts\activate
 
-# Instale as dependências
 pip install -r requirements.txt
 ```
 
@@ -82,10 +100,26 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Interface
+
+- **Ícones vetoriais** ([Lucide](https://lucide.dev), ISC) rasterizados em tempo
+  de execução no tamanho e na cor de cada estado. Nada de emoji: emoji muda de
+  desenho conforme o sistema, tem cor fixa — não acompanha hover, foco nem
+  estado desabilitado — e no Linux depende de uma fonte de emoji instalada.
+- **Elevação tonal** — no escuro a profundidade vem da luminância da superfície,
+  não de sombra: cinco níveis subindo ~6% cada, nenhum preto puro.
+- **Contraste medido, não estimado.** Cada par de cor do tema é verificado pelo
+  WCAG em teste (`pytest -k contraste`) e passa no AA (4,5:1). A regra que isso
+  protege: não existe letra mais branca que branco — quando falta contraste num
+  botão, quem escurece é o preenchimento.
+- **Tipografia nativa** — a família é escolhida entre as instaladas no sistema
+  (Segoe UI, SF Pro, Inter/Cantarell/Noto), em vez de cair num fallback sorteado.
+- **A janela não congela.** Todo trabalho pesado roda fora da thread da interface.
+
 ## Testes
 
-A lógica de arquivo vive fora da interface (`pdf_io.py`, `docx_convert.py`,
-`background.py`, `reorder.py`), então a suíte roda sem abrir janela:
+A lógica de arquivo vive fora da interface, em `pdf_tool/core/`, que não importa
+Tkinter. Por isso a suíte roda sem abrir janela e sem display:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
@@ -93,16 +127,9 @@ pytest                       # suíte completa
 pytest -k destino            # um recorte
 ```
 
-Cada arquivo de teste começa com a especificação do contrato que ele cobre: o que
-a função promete, por que existe e qual regra de negócio está sendo protegida.
-
-## Segurança dos seus arquivos
-
-- **Nenhuma ferramenta sobrescreve o arquivo de entrada.** Se o destino escolhido
-  for uma das origens, a operação é recusada com aviso em vez de executada.
-- **A gravação é atômica**: o PDF é escrito num arquivo temporário e só então
-  assume o nome final. Falha no meio do caminho não deixa arquivo truncado.
-- **Proteger usa AES-256**, não o RC4 legado.
+Cada arquivo de teste começa pela especificação do contrato que ele cobre: o que
+a função promete, **por que existe** — em geral o bug que a originou — e qual
+regra de negócio está sendo protegida.
 
 ## Estrutura do projeto
 
@@ -111,32 +138,38 @@ pdf-tool/
 ├── main.py                      ← EXECUTÁVEL: python main.py
 │
 ├── pdf_tool/                    # o aplicativo
-│   ├── app.py                   # janela, barra de abas customizada, status bar
+│   ├── app.py                   # janela, sidebar, cabeçalho de contexto, status bar
 │   ├── theme.py                 # única fonte de cor, fonte e espaçamento
-│   ├── widgets.py               # DropZone, ThumbnailGrid, rolagem multiplataforma
+│   ├── widgets.py               # botão, pills, campo de senha, drop zone, miniaturas
 │   │
 │   ├── core/                    # lógica pura, sem UI — é o que os testes cobrem
 │   │   ├── pdf_io.py            # toda escrita de PDF: destino ≠ origem, gravação atômica
 │   │   ├── docx_convert.py      # Word → PDF: Word no Windows/macOS, LibreOffice no Linux
 │   │   ├── background.py        # trabalho pesado em thread + retorno seguro para a UI
+│   │   ├── icons.py             # catálogo Lucide, rasterização SVG, ícone da janela
+│   │   ├── fonts.py             # escolha da família de fonte por plataforma
+│   │   ├── contrast.py          # razão de contraste WCAG
 │   │   └── reorder.py           # reordenação de listas (páginas e arquivos)
 │   │
 │   └── tabs/                    # uma classe por ferramenta
-│       ├── tab_split.py         # Dividir PDF
-│       ├── tab_merge.py         # Juntar PDFs
-│       ├── tab_convert.py       # Converter PDF ↔ Word
-│       ├── tab_organize.py      # Organizar páginas (drag-and-drop)
-│       ├── tab_compress.py      # Compactar PDF
-│       ├── tab_pdf_to_image.py  # PDF → Imagem
-│       ├── tab_image_to_pdf.py  # Imagem → PDF
-│       ├── tab_protect.py       # Proteger com senha
-│       ├── tab_unlock.py        # Remover senha
-│       └── tab_rotate.py        # Girar páginas
+│       ├── tab_split.py         # Dividir
+│       ├── tab_merge.py         # Juntar
+│       ├── tab_organize.py      # Organizar páginas
+│       ├── tab_rotate.py        # Girar
+│       ├── tab_convert.py       # PDF e Word
+│       ├── tab_pdf_to_image.py  # PDF para imagem
+│       ├── tab_image_to_pdf.py  # Imagem para PDF
+│       ├── tab_compress.py      # Compactar
+│       ├── tab_protect.py       # Proteger
+│       └── tab_unlock.py        # Desbloquear
 │
 ├── tests/                       # suíte da lógica pura — roda sem abrir janela
 │   ├── test_pdf_io.py           # integridade do arquivo, senha, operações
 │   ├── test_docx_convert.py     # escolha de motor por plataforma
 │   ├── test_background.py       # erro em thread chega mesmo à tela
+│   ├── test_icons.py            # render, ícone da janela, varredura de emoji
+│   ├── test_contrast.py         # cada par de cor do tema contra o AA
+│   ├── test_fonts.py            # escolha da família por plataforma
 │   ├── test_reorder.py          # mover e arrastar
 │   └── test_scroll.py           # roda do mouse por plataforma
 │
@@ -145,20 +178,21 @@ pdf-tool/
 └── pytest.ini
 ```
 
-A separação que importa: **`pdf_tool/core/` não importa Tkinter**. É por isso que a suíte roda sem
-abrir janela e sem display.
+A separação que importa: **`pdf_tool/core/` não conhece Tkinter.** É essa regra
+que mantém a lógica testável e a interface substituível.
 
 ## Dependências
 
 | Pacote | Uso |
 |--------|-----|
-| `customtkinter` | Interface dark mode com widgets modernos e cantos arredondados |
+| `customtkinter` | Widgets dark mode sobre o Tkinter |
 | `pypdf` | Leitura, escrita, divisão, rotação e criptografia de PDFs |
-| `pymupdf` | Renderização de miniaturas, compactação e conversão PDF↔imagem |
+| `pymupdf` | Miniaturas, compactação, PDF ↔ imagem e rasterização dos ícones |
 | `pdf2docx` | Conversão de PDF para Word |
-| `docx2pdf` | Conversão de Word para PDF no Windows/macOS (no Linux usa-se o LibreOffice) |
-| `cryptography` | Suporte a PDFs criptografados com AES |
+| `docx2pdf` | Word para PDF no Windows/macOS (no Linux o motor é o LibreOffice) |
+| `cryptography` | PDFs cifrados com AES |
 
-Os ícones são do conjunto [Lucide](https://lucide.dev) v1.27.0, sob licença ISC.
+Os ícones vêm do conjunto [Lucide](https://lucide.dev) v1.27.0, sob licença ISC.
 Os desenhos ficam embutidos em `pdf_tool/core/icons.py` como caminhos SVG e são
-rasterizados pelo `pymupdf` — não há pacote nem fonte a instalar por causa deles.
+rasterizados pelo `pymupdf` — **não há pacote nem fonte a instalar por causa
+deles**.
