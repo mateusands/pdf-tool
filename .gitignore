@@ -28,8 +28,10 @@ desktop.ini
 *.swp
 *.log
 
-# Caderno de bordo local das sessões (skill finalizar-sessao)
-.claude/sessions/
+# Configuração do assistente de IA (mantida local, não publicada)
+.claude/
+CLAUDE.md
+AGENTS.md
 
 # Cache do pytest
 .pytest_cache/
